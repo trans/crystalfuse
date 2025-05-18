@@ -1,5 +1,5 @@
 module Fuse
-  @[Link("fuse")]
+  @[Link("fuse3")]
   lib Binding
     type Handle = Void
     type Command = Void
