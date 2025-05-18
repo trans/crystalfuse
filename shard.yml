@@ -1,7 +1,8 @@
-name: fuse
+name: crystalfuse
 version: 0.1.0
 
 authors:
+  - Thomas Sawyer <transfire@gmail.com>
   - Stefan Merettig <stefan-merettig@nuriaproject.org>
 
 crystal: 0.20.3+13
