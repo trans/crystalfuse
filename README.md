@@ -9,7 +9,7 @@ Add this to your application's `shard.yml`:
 ```yaml
 dependencies:
   fuse:
-    github: Papierkorb/fuse
+    github: trans/crystalfuse
 ```
 
 Then make sure to have `libfuse` installed. It is a **development** and a
@@ -17,7 +17,7 @@ Then make sure to have `libfuse` installed. It is a **development** and a
 
 ## Usage
 
-See `samples/`
+Code up a subclass of Fuse::FileSystem, hit all the API point. Golden.
 
 ## Missing
 
