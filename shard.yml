@@ -5,6 +5,6 @@ authors:
   - Thomas Sawyer <transfire@gmail.com>
   - Stefan Merettig <stefan-merettig@nuriaproject.org>
 
-crystal: 0.20.3+13
+crystal: 19.1+
 
 license: MIT
