@@ -1,9 +1,11 @@
 require "./spec_helper"
 
-describe Fuse do
+describe Crystalfuse::Binding do
   # TODO: Write tests
 
-  it "works" do
-    false.should eq(true)
+  it "Operations struct is correct size." do
+    size = sizeof(Operations)
+    size.should eq(636)
   end
+
 end
