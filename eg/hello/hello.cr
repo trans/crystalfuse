@@ -1,39 +1,46 @@
 # hello.cr
+#
+# A minimal read-only filesystem exposing a single file, /hello.txt.
+#
+# Build the C shim first (`make` from the project root), then:
+#   crystal run eg/hello/hello.cr -- -f ./mnt
+# and read it with `cat ./mnt/hello.txt`. Unmount with `fusermount3 -u ./mnt`.
 require "../../src/crystalfuse"
 
 class HelloFS < Crystalfuse::FuseFS
+  CONTENT = "Hello from Crystal!\n"
+
   def getattr(path : String) : Crystalfuse::FileAttr | Int32
-    if path == "/"
+    case path
+    when "/"
       Crystalfuse::FileAttr.dir
-    elsif path == "/hello.txt"
-      Crystalfuse::FileAttr.file(
-        size: "Hello from Crystal!\n".bytesize,
-        mode: 0o444
-      )
+    when "/hello.txt"
+      Crystalfuse::FileAttr.file(size: CONTENT.bytesize, mode: 0o444)
     else
       -Errno::ENOENT.value
     end
   end
 
   def readdir(path : String) : Array(String) | Int32
-    return -Errno::ENOENT unless path == "/"
+    return -Errno::ENOENT.value unless path == "/"
     [".", "..", "hello.txt"]
   end
 
   def open(path : String) : Int32
-    path == "/hello.txt" ? 0 : -Errno::ENOENT
+    path == "/hello.txt" ? 0 : -Errno::ENOENT.value
   end
 
   def read(path : String, size : Int32, offset : Int64) : Bytes | Int32
-    return -Errno::ENOENT unless path == "/hello.txt"
-    content = "Hello from Crystal!\n".to_slice
-    offset_i = offset.to_i
+    return -Errno::ENOENT.value unless path == "/hello.txt"
+    content = CONTENT.to_slice
+    offset_i = offset.to_i32
     return Bytes.empty if offset_i >= content.size
     to_read = Math.min(size, content.size - offset_i)
     content[offset_i, to_read]
   end
 end
 
-# Run it!
-fs = HelloFS.new
-Crystalfuse.mount(fs, ["hello", "-f", "-d", "./mnt"])
+# Pass through argv: the program name plus whatever the user supplied
+# (e.g. `-f /mountpoint`).
+exit_code = HelloFS.new.mount(["hello"] + ARGV)
+exit(exit_code)

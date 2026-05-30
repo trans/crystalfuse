@@ -8,3 +8,12 @@
 /shard.lock
 
 *.img
+
+# Build artifacts
+/run
+/memrun
+/c/*.o
+/c/*.so
+/c/*.a
+/c/check_size
+/tmp/mnt/

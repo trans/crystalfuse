@@ -1,5 +1,9 @@
+require "../fuse_wrap"
+
 module Crystalfuse::FuseBridge
 
+  # Read-only convenience wrapper over the raw `fuse_file_info` pointer that
+  # libfuse hands to several operations (open, read, write, …).
   class FileInfoBridge
     @ptr : Pointer(FuseWrap::FileInfo)
 

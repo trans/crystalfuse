@@ -1,2 +1,2 @@
 require "spec"
-require "../src/fuse"
+require "../src/crystalfuse"
