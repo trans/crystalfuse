@@ -29,6 +29,8 @@ module Crystalfuse
     alias SymlinkCallback  = (Pointer(UInt8), Pointer(UInt8)) -> Int32
     alias StatfsCallback   = (Pointer(UInt8), Void*) -> Int32
     alias AccessCallback   = (Pointer(UInt8), Int32) -> Int32
+    # tv is a `struct timespec[2]` — [0] = atime, [1] = mtime — which decays to a pointer.
+    alias UtimensCallback  = (Pointer(UInt8), Pointer(LibC::Timespec), Pointer(FileInfo)) -> Int32
 
     fun fusewrap_register_getattr(cb : GetattrCallback) : Void
     fun fusewrap_register_readdir(cb : ReaddirCallback) : Void
@@ -47,6 +49,7 @@ module Crystalfuse
     fun fusewrap_register_symlink(cb : SymlinkCallback) : Void
     fun fusewrap_register_statfs(cb : StatfsCallback) : Void
     fun fusewrap_register_access(cb : AccessCallback) : Void
+    fun fusewrap_register_utimens(cb : UtimensCallback) : Void
 
     fun fusewrap_main(argc : Int32, argv : Pointer(Pointer(UInt8))) : Int32
 

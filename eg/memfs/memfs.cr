@@ -183,6 +183,17 @@ class MemFS < Crystalfuse::FuseFS
     0
   end
 
+  # nil for either time means "leave unchanged" (UTIME_OMIT). We only track a
+  # single mtime, so prefer the modification time when both are supplied.
+  def utimens(path : String, atime : Time?, mtime : Time?) : Int32
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    if t = mtime || atime
+      node.mtime = t
+    end
+    0
+  end
+
   def statfs(path : String) : Crystalfuse::StatVFS | Int32
     Crystalfuse::StatVFS.new(
       bsize: 4096, frsize: 4096,

@@ -6,6 +6,7 @@
 #define FUSE_USE_VERSION 35
 #include <fuse3/fuse.h>
 #include <sys/statvfs.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +33,7 @@ typedef int (*readlink_cb_t)(const char *, char *, size_t);
 typedef int (*symlink_cb_t)(const char *, const char *);
 typedef int (*statfs_cb_t)(const char *, struct statvfs *);
 typedef int (*access_cb_t)(const char *, int);
+typedef int (*utimens_cb_t)(const char *, const struct timespec[2], struct fuse_file_info *);
 
 // --- Registration functions ---
 void fusewrap_register_getattr(getattr_cb_t cb);
@@ -51,6 +53,7 @@ void fusewrap_register_readlink(readlink_cb_t cb);
 void fusewrap_register_symlink(symlink_cb_t cb);
 void fusewrap_register_statfs(statfs_cb_t cb);
 void fusewrap_register_access(access_cb_t cb);
+void fusewrap_register_utimens(utimens_cb_t cb);
 
 // Populate a `struct statvfs` from Crystal. The C compiler owns the struct
 // layout here, so Crystal never has to know it (which varies by libc version).

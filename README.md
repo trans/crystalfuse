@@ -91,12 +91,14 @@ loop single-threaded for now.
 ## Supported operations
 
 `getattr`, `readdir`, `open`, `read`, `write`, `create`, `truncate`, `unlink`,
-`mkdir`, `rmdir`, `rename`, `chmod`, `chown`, `readlink`, `symlink`, `statfs`,
-`access`.
+`mkdir`, `rmdir`, `rename`, `chmod`, `chown`, `utimens`, `readlink`, `symlink`,
+`statfs`, `access`.
 
 Each `FuseFS` operation returns either a meaningful Crystal value
 (`FileAttr`, `Array(String)`, `Bytes`, `String`, …) or a negative errno value
-to signal failure, e.g. `-Errno::ENOENT.value`.
+to signal failure, e.g. `-Errno::ENOENT.value`. An exception that escapes one
+of your operation methods is caught, logged to stderr, and reported to the
+kernel as `-EIO` rather than crashing the mount.
 
 ## Contributing
 

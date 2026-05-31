@@ -24,6 +24,13 @@ private class TestFS < Crystalfuse::FuseFS
   end
 end
 
+# A filesystem whose operations blow up, to exercise the bridge's guard.
+private class RaisingFS < Crystalfuse::FuseFS
+  def getattr(path : String) : Crystalfuse::FileAttr | Int32
+    raise "boom"
+  end
+end
+
 describe Crystalfuse::FileAttr do
   it "builds a regular file attr with the right mode and size" do
     attr = Crystalfuse::FileAttr.file(size: 5, mode: 0o444)
@@ -62,6 +69,32 @@ describe Crystalfuse::FileAttr do
     Crystalfuse::FileAttr.file(size: 0, uid: 1234, gid: 5678).to_c(pointerof(stat))
     stat.st_uid.should eq(1234)
     stat.st_gid.should eq(5678)
+  end
+end
+
+describe "FuseBridge.guard" do
+  it "turns an uncaught exception into -EIO instead of crashing" do
+    Crystalfuse::FuseBridge.set_instance(RaisingFS.new)
+    stat = LibC::Stat.new
+    rc = Crystalfuse::FuseBridge.guard do
+      Crystalfuse::FuseBridge._getattr(
+        "/x".to_unsafe, pointerof(stat),
+        Pointer(Crystalfuse::FuseWrap::FileInfo).null
+      )
+    end
+    rc.should eq(-Errno::EIO.value)
+  end
+end
+
+describe "FuseBridge.timespec_to_time" do
+  it "decodes a normal timespec" do
+    ts = LibC::Timespec.new(tv_sec: 1_000_000_000, tv_nsec: 0)
+    Crystalfuse::FuseBridge.timespec_to_time(ts).should eq(Time.unix(1_000_000_000))
+  end
+
+  it "returns nil for UTIME_OMIT (leave unchanged)" do
+    ts = LibC::Timespec.new(tv_sec: 0, tv_nsec: Crystalfuse::FuseBridge::UTIME_OMIT)
+    Crystalfuse::FuseBridge.timespec_to_time(ts).should be_nil
   end
 end
 

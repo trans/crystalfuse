@@ -86,6 +86,12 @@ module Crystalfuse
       -Errno::ENOSYS.value
     end
 
+    # Set the access and/or modification times of *path*. Either may be `nil`,
+    # meaning "leave that timestamp unchanged" (FUSE's `UTIME_OMIT`).
+    def utimens(path : String, atime : Time?, mtime : Time?) : Int32
+      -Errno::ENOSYS.value
+    end
+
     # Filesystem statistics for *path*. Return a `StatVFS`.
     def statfs(path : String) : StatVFS | Int32
       -Errno::ENOSYS.value
