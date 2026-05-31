@@ -26,9 +26,33 @@ module Crystalfuse
       0
     end
 
+    # Same as `open` but with the `FileInfo` (open flags + a settable file
+    # handle). Override this instead of `open` for handle/flag-aware behavior;
+    # by default it just delegates to the path-only form.
+    def open(path : String, fi : FileInfo) : Int32
+      open(path)
+    end
+
+    # Called once when the last open reference to a file is released. Free any
+    # handle/state you allocated in `open`/`create` here.
+    def release(path : String, fi : FileInfo) : Int32
+      0
+    end
+
+    # Called on each `close(2)` of a descriptor (may fire more than once, or
+    # not at all). Return an error to surface it to `close`.
+    def flush(path : String, fi : FileInfo) : Int32
+      0
+    end
+
     # Read up to *size* bytes from *path* starting at *offset*.
     def read(path : String, size : Int32, offset : Int64) : Bytes | Int32
       -Errno::ENOENT.value
+    end
+
+    # Same as `read` but with the `FileInfo` (file handle set in `open`).
+    def read(path : String, size : Int32, offset : Int64, fi : FileInfo) : Bytes | Int32
+      read(path, size, offset)
     end
 
     # Write *data* to *path* at *offset*. Return the number of bytes written.
@@ -36,9 +60,19 @@ module Crystalfuse
       -Errno::ENOSYS.value
     end
 
+    # Same as `write` but with the `FileInfo` (file handle set in `open`).
+    def write(path : String, data : Bytes, offset : Int64, fi : FileInfo) : Int32
+      write(path, data, offset)
+    end
+
     # Create and open a new file at *path* with the given *mode*.
     def create(path : String, mode : Int32) : Int32
       -Errno::ENOSYS.value
+    end
+
+    # Same as `create` but with the `FileInfo` (settable file handle).
+    def create(path : String, mode : Int32, fi : FileInfo) : Int32
+      create(path, mode)
     end
 
     # Change the size of the file at *path*.

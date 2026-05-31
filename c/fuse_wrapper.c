@@ -34,6 +34,8 @@ static symlink_cb_t  cb_symlink  = NULL;
 static statfs_cb_t   cb_statfs   = NULL;
 static access_cb_t   cb_access   = NULL;
 static utimens_cb_t  cb_utimens  = NULL;
+static release_cb_t  cb_release  = NULL;
+static flush_cb_t    cb_flush    = NULL;
 
 // --- Registration ---
 void fusewrap_register_getattr(getattr_cb_t cb)   { cb_getattr  = cb; }
@@ -54,6 +56,8 @@ void fusewrap_register_symlink(symlink_cb_t cb)   { cb_symlink  = cb; }
 void fusewrap_register_statfs(statfs_cb_t cb)     { cb_statfs   = cb; }
 void fusewrap_register_access(access_cb_t cb)     { cb_access   = cb; }
 void fusewrap_register_utimens(utimens_cb_t cb)   { cb_utimens  = cb; }
+void fusewrap_register_release(release_cb_t cb)   { cb_release  = cb; }
+void fusewrap_register_flush(flush_cb_t cb)       { cb_flush    = cb; }
 
 // --- Operation wrappers ---
 static int wrapper_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
@@ -150,6 +154,16 @@ static int wrapper_utimens(const char *path, const struct timespec tv[2], struct
     return cb_utimens(path, tv, fi);
 }
 
+static int wrapper_release(const char *path, struct fuse_file_info *fi) {
+    if (!cb_release) return -ENOSYS;
+    return cb_release(path, fi);
+}
+
+static int wrapper_flush(const char *path, struct fuse_file_info *fi) {
+    if (!cb_flush) return -ENOSYS;
+    return cb_flush(path, fi);
+}
+
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
@@ -184,6 +198,8 @@ static struct fuse_operations wrapper_ops = {
     .access   = wrapper_access,
     .create   = wrapper_create,
     .utimens  = wrapper_utimens,
+    .release  = wrapper_release,
+    .flush    = wrapper_flush,
 };
 
 // Main call to mount!

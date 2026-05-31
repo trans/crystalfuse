@@ -15,6 +15,8 @@ module Crystalfuse
     alias GetattrCallback  = (Pointer(UInt8), Pointer(LibC::Stat), Pointer(FileInfo)) -> Int32
     alias ReaddirCallback  = (Pointer(UInt8), Void*, FillDir, Int64, Pointer(FileInfo), UInt32) -> Int32
     alias OpenCallback     = (Pointer(UInt8), Pointer(FileInfo)) -> Int32
+    alias ReleaseCallback  = (Pointer(UInt8), Pointer(FileInfo)) -> Int32
+    alias FlushCallback    = (Pointer(UInt8), Pointer(FileInfo)) -> Int32
     alias ReadCallback     = (Pointer(UInt8), Pointer(UInt8), LibC::SizeT, Int64, Pointer(FileInfo)) -> Int32
     alias WriteCallback    = (Pointer(UInt8), Pointer(UInt8), LibC::SizeT, Int64, Pointer(FileInfo)) -> Int32
     alias CreateCallback   = (Pointer(UInt8), LibC::ModeT, Pointer(FileInfo)) -> Int32
@@ -35,6 +37,8 @@ module Crystalfuse
     fun fusewrap_register_getattr(cb : GetattrCallback) : Void
     fun fusewrap_register_readdir(cb : ReaddirCallback) : Void
     fun fusewrap_register_open(cb : OpenCallback) : Void
+    fun fusewrap_register_release(cb : ReleaseCallback) : Void
+    fun fusewrap_register_flush(cb : FlushCallback) : Void
     fun fusewrap_register_read(cb : ReadCallback) : Void
     fun fusewrap_register_write(cb : WriteCallback) : Void
     fun fusewrap_register_create(cb : CreateCallback) : Void

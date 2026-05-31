@@ -31,6 +31,23 @@ private class RaisingFS < Crystalfuse::FuseFS
   end
 end
 
+# Records what it sees through the FileInfo, to verify fh/flag plumbing.
+private class HandleEchoFS < Crystalfuse::FuseFS
+  property seen_fh : UInt64 = 0_u64
+  property seen_writable : Bool = false
+
+  def open(path : String, fi : Crystalfuse::FileInfo) : Int32
+    @seen_writable = fi.writable?
+    fi.fh = 0xCAFE_u64
+    0
+  end
+
+  def read(path : String, size : Int32, offset : Int64, fi : Crystalfuse::FileInfo) : Bytes | Int32
+    @seen_fh = fi.fh
+    Bytes.empty
+  end
+end
+
 describe Crystalfuse::FileAttr do
   it "builds a regular file attr with the right mode and size" do
     attr = Crystalfuse::FileAttr.file(size: 5, mode: 0o444)
@@ -95,6 +112,39 @@ describe "FuseBridge.timespec_to_time" do
   it "returns nil for UTIME_OMIT (leave unchanged)" do
     ts = LibC::Timespec.new(tv_sec: 0, tv_nsec: Crystalfuse::FuseBridge::UTIME_OMIT)
     Crystalfuse::FuseBridge.timespec_to_time(ts).should be_nil
+  end
+end
+
+describe Crystalfuse::FileInfo do
+  it "decodes access-mode flags and gets/sets fh" do
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    cfi.flags = LibC::O_RDWR | LibC::O_APPEND
+    info = Crystalfuse::FileInfo.new(pointerof(cfi))
+
+    info.read_write?.should be_true
+    info.writable?.should be_true
+    info.read_only?.should be_false
+    info.append?.should be_true
+
+    info.fh = 9_u64
+    cfi.fh.should eq(9)
+  end
+end
+
+describe "file handles" do
+  it "round-trips fh from open to read and exposes the open flags" do
+    fs = HandleEchoFS.new
+    Crystalfuse::FuseBridge.set_instance(fs)
+
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    cfi.flags = LibC::O_WRONLY
+    Crystalfuse::FuseBridge._open("/f".to_unsafe, pointerof(cfi)).should eq(0)
+    fs.seen_writable.should be_true
+    cfi.fh.should eq(0xCAFE) # the handle the fs stashed survives in the C struct
+
+    buf = Bytes.new(4)
+    Crystalfuse::FuseBridge._read("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(4), 0_i64, pointerof(cfi))
+    fs.seen_fh.should eq(0xCAFE) # ...and is handed back on read
   end
 end
 

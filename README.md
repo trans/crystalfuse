@@ -90,15 +90,40 @@ loop single-threaded for now.
 
 ## Supported operations
 
-`getattr`, `readdir`, `open`, `read`, `write`, `create`, `truncate`, `unlink`,
-`mkdir`, `rmdir`, `rename`, `chmod`, `chown`, `utimens`, `readlink`, `symlink`,
-`statfs`, `access`.
+`getattr`, `readdir`, `open`, `release`, `flush`, `read`, `write`, `create`,
+`truncate`, `unlink`, `mkdir`, `rmdir`, `rename`, `chmod`, `chown`, `utimens`,
+`readlink`, `symlink`, `statfs`, `access`.
 
 Each `FuseFS` operation returns either a meaningful Crystal value
 (`FileAttr`, `Array(String)`, `Bytes`, `String`, …) or a negative errno value
 to signal failure, e.g. `-Errno::ENOENT.value`. An exception that escapes one
 of your operation methods is caught, logged to stderr, and reported to the
 kernel as `-EIO` rather than crashing the mount.
+
+## File handles
+
+`open`, `create`, `read`, `write`, `release` and `flush` each have a second
+form that also receives a `Crystalfuse::FileInfo`. Override that form when you
+want the open *flags* (`read_only?`, `writable?`, `append?`, `truncate?`) or a
+*file handle*: set `fi.fh` (any `UInt64` you own) in `open`/`create` and the
+kernel hands it back on every later op for that open file, so you needn't
+re-resolve the path each time. Free it in `release`.
+
+```crystal
+def open(path : String, fi : Crystalfuse::FileInfo) : Int32
+  return -Errno::EACCES.value if fi.writable? # read-only fs
+  fi.fh = @open.add(MyOpenFile.new(path))     # see HandleTable below
+  0
+end
+```
+
+The path-only forms still work — they're what the handle-aware defaults
+delegate to — so a stateless filesystem can ignore handles entirely.
+
+For mapping handles to your own state there's an **optional** helper,
+`Crystalfuse::HandleTable(T)` (`require "crystalfuse/handle_table"`); it's not
+loaded by default. See `eg/handlefs/handlefs.cr` for a complete read-only
+example built on handles.
 
 ## Contributing
 

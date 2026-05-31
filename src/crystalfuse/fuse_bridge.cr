@@ -61,11 +61,19 @@ module Crystalfuse
     end
 
     def self._open(path_ptr, fi) : Int32
-      instance.open(String.new(path_ptr))
+      instance.open(String.new(path_ptr), FileInfo.new(fi))
+    end
+
+    def self._release(path_ptr, fi) : Int32
+      instance.release(String.new(path_ptr), FileInfo.new(fi))
+    end
+
+    def self._flush(path_ptr, fi) : Int32
+      instance.flush(String.new(path_ptr), FileInfo.new(fi))
     end
 
     def self._read(path_ptr, buf, size, offset, fi) : Int32
-      result = instance.read(String.new(path_ptr), size.to_i32, offset)
+      result = instance.read(String.new(path_ptr), size.to_i32, offset, FileInfo.new(fi))
       case result
       when Bytes
         n = Math.min(result.size, size.to_i32)
@@ -78,11 +86,11 @@ module Crystalfuse
 
     def self._write(path_ptr, buf, size, offset, fi) : Int32
       data = Slice.new(buf, size.to_i32)
-      instance.write(String.new(path_ptr), data, offset)
+      instance.write(String.new(path_ptr), data, offset, FileInfo.new(fi))
     end
 
     def self._create(path_ptr, mode, fi) : Int32
-      instance.create(String.new(path_ptr), mode.to_i32)
+      instance.create(String.new(path_ptr), mode.to_i32, FileInfo.new(fi))
     end
 
     def self._truncate(path_ptr, size, fi) : Int32
@@ -174,6 +182,8 @@ module Crystalfuse
       FuseWrap.fusewrap_register_getattr ->(p : Pointer(UInt8), s : Pointer(LibC::Stat), fi : Pointer(FuseWrap::FileInfo)) { guard { _getattr(p, s, fi) } }
       FuseWrap.fusewrap_register_readdir ->(p : Pointer(UInt8), b : Void*, f : FuseWrap::FillDir, o : Int64, fi : Pointer(FuseWrap::FileInfo), fl : UInt32) { guard { _readdir(p, b, f, o, fi, fl) } }
       FuseWrap.fusewrap_register_open ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _open(p, fi) } }
+      FuseWrap.fusewrap_register_release ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _release(p, fi) } }
+      FuseWrap.fusewrap_register_flush ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _flush(p, fi) } }
       FuseWrap.fusewrap_register_read ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _read(p, b, sz, o, fi) } }
       FuseWrap.fusewrap_register_write ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _write(p, b, sz, o, fi) } }
       FuseWrap.fusewrap_register_create ->(p : Pointer(UInt8), m : LibC::ModeT, fi : Pointer(FuseWrap::FileInfo)) { guard { _create(p, m, fi) } }

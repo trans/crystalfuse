@@ -12,6 +12,7 @@
 # Build artifacts
 /run
 /memrun
+/handlerun
 /c/*.o
 /c/*.so
 /c/*.a

@@ -8,9 +8,9 @@ require "./crystalfuse/libc"
 require "./crystalfuse/file_attr"
 require "./crystalfuse/statvfs"
 require "./crystalfuse/fuse_wrap"
+require "./crystalfuse/file_info"
 require "./crystalfuse/fuse_fs"
 require "./crystalfuse/fuse_bridge"
-require "./crystalfuse/fuse_bridge/file_info"
 
 module Crystalfuse
   # Mount *fs*, passing *args* (an argv-style array, e.g.
