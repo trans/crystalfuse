@@ -26,6 +26,7 @@ class MemFS < Crystalfuse::FuseFS
     property uid : UInt32 = Crystalfuse::FileAttr::DEFAULT_UID
     property gid : UInt32 = Crystalfuse::FileAttr::DEFAULT_GID
     property mtime : Time
+    property xattrs = {} of String => Bytes
 
     def initialize(@perms : Int32, @mtime : Time = Time.utc)
     end
@@ -180,6 +181,40 @@ class MemFS < Crystalfuse::FuseFS
     return -Errno::ENOENT.value unless node
     node.uid = uid unless uid == UInt32::MAX
     node.gid = gid unless gid == UInt32::MAX
+    0
+  end
+
+  # --- Extended attributes (stored per node) ---
+
+  XATTR_CREATE  = 1
+  XATTR_REPLACE = 2
+
+  def setxattr(path : String, name : String, value : Bytes, flags : Int32) : Int32
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    return -Errno::EEXIST.value if flags == XATTR_CREATE && node.xattrs.has_key?(name)
+    return -Errno::ENODATA.value if flags == XATTR_REPLACE && !node.xattrs.has_key?(name)
+    node.xattrs[name] = value.dup # value is a view over a transient C buffer
+    0
+  end
+
+  def getxattr(path : String, name : String) : Bytes | Int32
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    node.xattrs[name]? || -Errno::ENODATA.value
+  end
+
+  def listxattr(path : String) : Array(String) | Int32
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    node.xattrs.keys
+  end
+
+  def removexattr(path : String, name : String) : Int32
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    return -Errno::ENODATA.value unless node.xattrs.has_key?(name)
+    node.xattrs.delete(name)
     0
   end
 

@@ -38,6 +38,16 @@ typedef int (*release_cb_t)(const char *, struct fuse_file_info *);
 typedef int (*flush_cb_t)(const char *, struct fuse_file_info *);
 typedef void (*init_cb_t)(void);
 typedef void (*destroy_cb_t)(void);
+typedef int (*fsync_cb_t)(const char *, int, struct fuse_file_info *);
+typedef int (*fsyncdir_cb_t)(const char *, int, struct fuse_file_info *);
+typedef int (*opendir_cb_t)(const char *, struct fuse_file_info *);
+typedef int (*releasedir_cb_t)(const char *, struct fuse_file_info *);
+typedef int (*mknod_cb_t)(const char *, mode_t, dev_t);
+typedef int (*link_cb_t)(const char *, const char *);
+typedef int (*setxattr_cb_t)(const char *, const char *, const char *, size_t, int);
+typedef int (*getxattr_cb_t)(const char *, const char *, char *, size_t);
+typedef int (*listxattr_cb_t)(const char *, char *, size_t);
+typedef int (*removexattr_cb_t)(const char *, const char *);
 
 // --- Registration functions ---
 void fusewrap_register_getattr(getattr_cb_t cb);
@@ -62,6 +72,16 @@ void fusewrap_register_release(release_cb_t cb);
 void fusewrap_register_flush(flush_cb_t cb);
 void fusewrap_register_init(init_cb_t cb);
 void fusewrap_register_destroy(destroy_cb_t cb);
+void fusewrap_register_fsync(fsync_cb_t cb);
+void fusewrap_register_fsyncdir(fsyncdir_cb_t cb);
+void fusewrap_register_opendir(opendir_cb_t cb);
+void fusewrap_register_releasedir(releasedir_cb_t cb);
+void fusewrap_register_mknod(mknod_cb_t cb);
+void fusewrap_register_link(link_cb_t cb);
+void fusewrap_register_setxattr(setxattr_cb_t cb);
+void fusewrap_register_getxattr(getxattr_cb_t cb);
+void fusewrap_register_listxattr(listxattr_cb_t cb);
+void fusewrap_register_removexattr(removexattr_cb_t cb);
 
 // Populate a `struct statvfs` from Crystal. The C compiler owns the struct
 // layout here, so Crystal never has to know it (which varies by libc version).

@@ -186,6 +186,92 @@ describe "lifecycle hooks" do
   end
 end
 
+# In-memory xattrs plus recorders for mknod/link, to exercise those bridges.
+private class XattrFS < Crystalfuse::FuseFS
+  @attrs = {} of String => Bytes
+  property last_mknod : Tuple(String, Int32, UInt64)? = nil
+  property linked : Tuple(String, String)? = nil
+
+  def setxattr(path : String, name : String, value : Bytes, flags : Int32) : Int32
+    @attrs[name] = value.dup
+    0
+  end
+
+  def getxattr(path : String, name : String) : Bytes | Int32
+    @attrs[name]? || -Errno::ENODATA.value
+  end
+
+  def listxattr(path : String) : Array(String) | Int32
+    @attrs.keys
+  end
+
+  def mknod(path : String, mode : Int32, rdev : UInt64) : Int32
+    @last_mknod = {path, mode, rdev}
+    0
+  end
+
+  def link(target : String, link_path : String) : Int32
+    @linked = {target, link_path}
+    0
+  end
+end
+
+describe "xattr bridge (two-call size protocol)" do
+  it "stores, size-probes, and reads back a value" do
+    Crystalfuse::FuseBridge.set_instance(XattrFS.new)
+    v = "bar".to_slice
+    Crystalfuse::FuseBridge._setxattr("/f".to_unsafe, "user.foo".to_unsafe,
+      v.to_unsafe, LibC::SizeT.new(v.size), 0).should eq(0)
+
+    # size 0 → required length, buffer untouched (pass null)
+    Crystalfuse::FuseBridge._getxattr("/f".to_unsafe, "user.foo".to_unsafe,
+      Pointer(UInt8).null, LibC::SizeT.new(0)).should eq(3)
+
+    buf = Bytes.new(8)
+    n = Crystalfuse::FuseBridge._getxattr("/f".to_unsafe, "user.foo".to_unsafe,
+      buf.to_unsafe, LibC::SizeT.new(8))
+    n.should eq(3)
+    String.new(buf[0, 3]).should eq("bar")
+  end
+
+  it "returns -ERANGE when the buffer is too small" do
+    Crystalfuse::FuseBridge.set_instance(XattrFS.new)
+    v = "abcdef".to_slice
+    Crystalfuse::FuseBridge._setxattr("/f".to_unsafe, "user.k".to_unsafe,
+      v.to_unsafe, LibC::SizeT.new(v.size), 0)
+    buf = Bytes.new(2)
+    Crystalfuse::FuseBridge._getxattr("/f".to_unsafe, "user.k".to_unsafe,
+      buf.to_unsafe, LibC::SizeT.new(2)).should eq(-Errno::ERANGE.value)
+  end
+
+  it "serializes the name list NUL-separated" do
+    Crystalfuse::FuseBridge.set_instance(XattrFS.new)
+    one = "1".to_slice
+    Crystalfuse::FuseBridge._setxattr("/f".to_unsafe, "user.a".to_unsafe, one.to_unsafe, LibC::SizeT.new(1), 0)
+    Crystalfuse::FuseBridge._setxattr("/f".to_unsafe, "user.bb".to_unsafe, one.to_unsafe, LibC::SizeT.new(1), 0)
+
+    total = Crystalfuse::FuseBridge._listxattr("/f".to_unsafe, Pointer(UInt8).null, LibC::SizeT.new(0))
+    total.should eq(("user.a".bytesize + 1) + ("user.bb".bytesize + 1))
+
+    buf = Bytes.new(total)
+    Crystalfuse::FuseBridge._listxattr("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(total)).should eq(total)
+    String.new(buf).split('\0', remove_empty: true).sort.should eq(["user.a", "user.bb"])
+  end
+end
+
+describe "mknod / link bridge" do
+  it "dispatches mknod and link with their arguments" do
+    fs = XattrFS.new
+    Crystalfuse::FuseBridge.set_instance(fs)
+
+    Crystalfuse::FuseBridge._mknod("/n".to_unsafe, LibC::ModeT.new(0o100644), LibC::DevT.new(0)).should eq(0)
+    fs.last_mknod.should eq({"/n", 0o100644, 0_u64})
+
+    Crystalfuse::FuseBridge._link("/a".to_unsafe, "/b".to_unsafe).should eq(0)
+    fs.linked.should eq({"/a", "/b"})
+  end
+end
+
 describe Crystalfuse::FuseBridge do
   it "dispatches getattr through the bridge and fills the stat buffer" do
     Crystalfuse::FuseBridge.set_instance(TestFS.new)

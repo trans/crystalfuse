@@ -29,6 +29,26 @@ module Crystalfuse
       -Errno::ENOENT.value
     end
 
+    # Same as `readdir` but with the `FileInfo` (the handle set in `opendir`).
+    def readdir(path : String, fi : FileInfo) : Array(String) | Int32
+      readdir(path)
+    end
+
+    # Called when a directory is opened. Set `fi.fh` for a directory handle.
+    def opendir(path : String, fi : FileInfo) : Int32
+      0
+    end
+
+    # Called when a directory handle is released.
+    def releasedir(path : String, fi : FileInfo) : Int32
+      0
+    end
+
+    # Sync a directory. *datasync* true → flush data only, not metadata.
+    def fsyncdir(path : String, datasync : Bool, fi : FileInfo) : Int32
+      0
+    end
+
     # Called when a file is opened. Return 0 for success.
     def open(path : String) : Int32
       0
@@ -50,6 +70,11 @@ module Crystalfuse
     # Called on each `close(2)` of a descriptor (may fire more than once, or
     # not at all). Return an error to surface it to `close`.
     def flush(path : String, fi : FileInfo) : Int32
+      0
+    end
+
+    # Sync a file's contents to storage. *datasync* true → flush data only.
+    def fsync(path : String, datasync : Bool, fi : FileInfo) : Int32
       0
     end
 
@@ -98,6 +123,12 @@ module Crystalfuse
       -Errno::ENOSYS.value
     end
 
+    # Create a filesystem node (regular file, FIFO, socket, device, …) at
+    # *path*. *rdev* matters only for device nodes.
+    def mknod(path : String, mode : Int32, rdev : UInt64) : Int32
+      -Errno::ENOSYS.value
+    end
+
     # Remove the directory at *path*.
     def rmdir(path : String) : Int32
       -Errno::ENOSYS.value
@@ -128,10 +159,39 @@ module Crystalfuse
       -Errno::ENOSYS.value
     end
 
+    # Create a hard link at *link_path* referring to the existing file *target*.
+    def link(target : String, link_path : String) : Int32
+      -Errno::ENOSYS.value
+    end
+
     # Set the access and/or modification times of *path*. Either may be `nil`,
     # meaning "leave that timestamp unchanged" (FUSE's `UTIME_OMIT`).
     def utimens(path : String, atime : Time?, mtime : Time?) : Int32
       -Errno::ENOSYS.value
+    end
+
+    # --- Extended attributes ---
+
+    # Set extended attribute *name* to *value*. *flags* may be `XATTR_CREATE`
+    # (1, fail if it exists) or `XATTR_REPLACE` (2, fail if it doesn't).
+    def setxattr(path : String, name : String, value : Bytes, flags : Int32) : Int32
+      -Errno::EOPNOTSUPP.value
+    end
+
+    # Return the value of extended attribute *name*, or a negative errno
+    # (e.g. `-Errno::ENODATA.value` when it doesn't exist).
+    def getxattr(path : String, name : String) : Bytes | Int32
+      -Errno::EOPNOTSUPP.value
+    end
+
+    # Return the names of *path*'s extended attributes.
+    def listxattr(path : String) : Array(String) | Int32
+      -Errno::EOPNOTSUPP.value
+    end
+
+    # Remove extended attribute *name*.
+    def removexattr(path : String, name : String) : Int32
+      -Errno::EOPNOTSUPP.value
     end
 
     # Filesystem statistics for *path*. Return a `StatVFS`.

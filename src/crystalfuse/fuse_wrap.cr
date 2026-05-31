@@ -33,6 +33,16 @@ module Crystalfuse
     alias AccessCallback   = (Pointer(UInt8), Int32) -> Int32
     alias InitCallback     = -> Void
     alias DestroyCallback  = -> Void
+    alias FsyncCallback       = (Pointer(UInt8), Int32, Pointer(FileInfo)) -> Int32
+    alias FsyncdirCallback    = (Pointer(UInt8), Int32, Pointer(FileInfo)) -> Int32
+    alias OpendirCallback     = (Pointer(UInt8), Pointer(FileInfo)) -> Int32
+    alias ReleasedirCallback  = (Pointer(UInt8), Pointer(FileInfo)) -> Int32
+    alias MknodCallback       = (Pointer(UInt8), LibC::ModeT, LibC::DevT) -> Int32
+    alias LinkCallback        = (Pointer(UInt8), Pointer(UInt8)) -> Int32
+    alias SetxattrCallback    = (Pointer(UInt8), Pointer(UInt8), Pointer(UInt8), LibC::SizeT, Int32) -> Int32
+    alias GetxattrCallback    = (Pointer(UInt8), Pointer(UInt8), Pointer(UInt8), LibC::SizeT) -> Int32
+    alias ListxattrCallback   = (Pointer(UInt8), Pointer(UInt8), LibC::SizeT) -> Int32
+    alias RemovexattrCallback = (Pointer(UInt8), Pointer(UInt8)) -> Int32
     # tv is a `struct timespec[2]` — [0] = atime, [1] = mtime — which decays to a pointer.
     alias UtimensCallback  = (Pointer(UInt8), Pointer(LibC::Timespec), Pointer(FileInfo)) -> Int32
 
@@ -58,6 +68,16 @@ module Crystalfuse
     fun fusewrap_register_utimens(cb : UtimensCallback) : Void
     fun fusewrap_register_init(cb : InitCallback) : Void
     fun fusewrap_register_destroy(cb : DestroyCallback) : Void
+    fun fusewrap_register_fsync(cb : FsyncCallback) : Void
+    fun fusewrap_register_fsyncdir(cb : FsyncdirCallback) : Void
+    fun fusewrap_register_opendir(cb : OpendirCallback) : Void
+    fun fusewrap_register_releasedir(cb : ReleasedirCallback) : Void
+    fun fusewrap_register_mknod(cb : MknodCallback) : Void
+    fun fusewrap_register_link(cb : LinkCallback) : Void
+    fun fusewrap_register_setxattr(cb : SetxattrCallback) : Void
+    fun fusewrap_register_getxattr(cb : GetxattrCallback) : Void
+    fun fusewrap_register_listxattr(cb : ListxattrCallback) : Void
+    fun fusewrap_register_removexattr(cb : RemovexattrCallback) : Void
 
     fun fusewrap_main(argc : Int32, argv : Pointer(Pointer(UInt8))) : Int32
 

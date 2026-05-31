@@ -38,6 +38,16 @@ static release_cb_t  cb_release  = NULL;
 static flush_cb_t    cb_flush    = NULL;
 static init_cb_t     cb_init     = NULL;
 static destroy_cb_t  cb_destroy  = NULL;
+static fsync_cb_t       cb_fsync       = NULL;
+static fsyncdir_cb_t    cb_fsyncdir    = NULL;
+static opendir_cb_t     cb_opendir     = NULL;
+static releasedir_cb_t  cb_releasedir  = NULL;
+static mknod_cb_t       cb_mknod       = NULL;
+static link_cb_t        cb_link        = NULL;
+static setxattr_cb_t    cb_setxattr    = NULL;
+static getxattr_cb_t    cb_getxattr    = NULL;
+static listxattr_cb_t   cb_listxattr   = NULL;
+static removexattr_cb_t cb_removexattr = NULL;
 
 // --- Registration ---
 void fusewrap_register_getattr(getattr_cb_t cb)   { cb_getattr  = cb; }
@@ -62,6 +72,16 @@ void fusewrap_register_release(release_cb_t cb)   { cb_release  = cb; }
 void fusewrap_register_flush(flush_cb_t cb)       { cb_flush    = cb; }
 void fusewrap_register_init(init_cb_t cb)         { cb_init     = cb; }
 void fusewrap_register_destroy(destroy_cb_t cb)   { cb_destroy  = cb; }
+void fusewrap_register_fsync(fsync_cb_t cb)             { cb_fsync       = cb; }
+void fusewrap_register_fsyncdir(fsyncdir_cb_t cb)       { cb_fsyncdir    = cb; }
+void fusewrap_register_opendir(opendir_cb_t cb)         { cb_opendir     = cb; }
+void fusewrap_register_releasedir(releasedir_cb_t cb)   { cb_releasedir  = cb; }
+void fusewrap_register_mknod(mknod_cb_t cb)             { cb_mknod       = cb; }
+void fusewrap_register_link(link_cb_t cb)               { cb_link        = cb; }
+void fusewrap_register_setxattr(setxattr_cb_t cb)       { cb_setxattr    = cb; }
+void fusewrap_register_getxattr(getxattr_cb_t cb)       { cb_getxattr    = cb; }
+void fusewrap_register_listxattr(listxattr_cb_t cb)     { cb_listxattr   = cb; }
+void fusewrap_register_removexattr(removexattr_cb_t cb) { cb_removexattr = cb; }
 
 // --- Operation wrappers ---
 static int wrapper_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
@@ -182,6 +202,56 @@ static void wrapper_destroy(void *private_data) {
     if (cb_destroy) cb_destroy();
 }
 
+static int wrapper_fsync(const char *path, int datasync, struct fuse_file_info *fi) {
+    if (!cb_fsync) return -ENOSYS;
+    return cb_fsync(path, datasync, fi);
+}
+
+static int wrapper_fsyncdir(const char *path, int datasync, struct fuse_file_info *fi) {
+    if (!cb_fsyncdir) return -ENOSYS;
+    return cb_fsyncdir(path, datasync, fi);
+}
+
+static int wrapper_opendir(const char *path, struct fuse_file_info *fi) {
+    if (!cb_opendir) return -ENOSYS;
+    return cb_opendir(path, fi);
+}
+
+static int wrapper_releasedir(const char *path, struct fuse_file_info *fi) {
+    if (!cb_releasedir) return -ENOSYS;
+    return cb_releasedir(path, fi);
+}
+
+static int wrapper_mknod(const char *path, mode_t mode, dev_t rdev) {
+    if (!cb_mknod) return -ENOSYS;
+    return cb_mknod(path, mode, rdev);
+}
+
+static int wrapper_link(const char *from, const char *to) {
+    if (!cb_link) return -ENOSYS;
+    return cb_link(from, to);
+}
+
+static int wrapper_setxattr(const char *path, const char *name, const char *value, size_t size, int flags) {
+    if (!cb_setxattr) return -ENOSYS;
+    return cb_setxattr(path, name, value, size, flags);
+}
+
+static int wrapper_getxattr(const char *path, const char *name, char *value, size_t size) {
+    if (!cb_getxattr) return -ENOSYS;
+    return cb_getxattr(path, name, value, size);
+}
+
+static int wrapper_listxattr(const char *path, char *list, size_t size) {
+    if (!cb_listxattr) return -ENOSYS;
+    return cb_listxattr(path, list, size);
+}
+
+static int wrapper_removexattr(const char *path, const char *name) {
+    if (!cb_removexattr) return -ENOSYS;
+    return cb_removexattr(path, name);
+}
+
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
@@ -220,6 +290,16 @@ static struct fuse_operations wrapper_ops = {
     .flush    = wrapper_flush,
     .init     = wrapper_init,
     .destroy  = wrapper_destroy,
+    .fsync       = wrapper_fsync,
+    .fsyncdir    = wrapper_fsyncdir,
+    .opendir     = wrapper_opendir,
+    .releasedir  = wrapper_releasedir,
+    .mknod       = wrapper_mknod,
+    .link        = wrapper_link,
+    .setxattr    = wrapper_setxattr,
+    .getxattr    = wrapper_getxattr,
+    .listxattr   = wrapper_listxattr,
+    .removexattr = wrapper_removexattr,
 };
 
 // Main call to mount!

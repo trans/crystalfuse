@@ -90,9 +90,16 @@ loop single-threaded for now.
 
 ## Supported operations
 
-`getattr`, `readdir`, `open`, `release`, `flush`, `read`, `write`, `create`,
-`truncate`, `unlink`, `mkdir`, `rmdir`, `rename`, `chmod`, `chown`, `utimens`,
-`readlink`, `symlink`, `statfs`, `access`.
+`init`, `destroy`, `getattr`, `readdir`, `opendir`, `releasedir`, `fsyncdir`,
+`open`, `release`, `flush`, `fsync`, `read`, `write`, `create`, `truncate`,
+`mknod`, `unlink`, `mkdir`, `rmdir`, `rename`, `link`, `symlink`, `readlink`,
+`chmod`, `chown`, `utimens`, `statfs`, `access`, and the xattr family
+(`setxattr`, `getxattr`, `listxattr`, `removexattr`).
+
+For xattrs your methods just return Crystal values — `getxattr` returns the
+value as `Bytes` (or `-Errno::ENODATA.value`), `listxattr` returns the names as
+an `Array(String)` — and the binding handles libfuse's two-call size-probe
+protocol for you. `eg/memfs` implements them; try it with `setfattr`/`getfattr`.
 
 Each `FuseFS` operation returns either a meaningful Crystal value
 (`FileAttr`, `Array(String)`, `Bytes`, `String`, …) or a negative errno value

@@ -65,7 +65,7 @@ module Crystalfuse
     end
 
     def self._readdir(path_ptr, buf, filler, offset, fi, flags) : Int32
-      result = instance.readdir(String.new(path_ptr))
+      result = instance.readdir(String.new(path_ptr), FileInfo.new(fi))
       case result
       when Array(String)
         result.each do |entry|
@@ -192,6 +192,78 @@ module Crystalfuse
       instance.access(String.new(path_ptr), mask)
     end
 
+    def self._fsync(path_ptr, datasync, fi) : Int32
+      instance.fsync(String.new(path_ptr), datasync != 0, FileInfo.new(fi))
+    end
+
+    def self._fsyncdir(path_ptr, datasync, fi) : Int32
+      instance.fsyncdir(String.new(path_ptr), datasync != 0, FileInfo.new(fi))
+    end
+
+    def self._opendir(path_ptr, fi) : Int32
+      instance.opendir(String.new(path_ptr), FileInfo.new(fi))
+    end
+
+    def self._releasedir(path_ptr, fi) : Int32
+      instance.releasedir(String.new(path_ptr), FileInfo.new(fi))
+    end
+
+    def self._mknod(path_ptr, mode, rdev) : Int32
+      instance.mknod(String.new(path_ptr), mode.to_i32, rdev.to_u64)
+    end
+
+    def self._link(target_ptr, link_ptr) : Int32
+      instance.link(String.new(target_ptr), String.new(link_ptr))
+    end
+
+    def self._setxattr(path_ptr, name_ptr, value_ptr, size, flags) : Int32
+      value = Slice.new(value_ptr, size.to_i32)
+      instance.setxattr(String.new(path_ptr), String.new(name_ptr), value, flags)
+    end
+
+    # getxattr/listxattr use a two-call protocol: when size is 0 the caller is
+    # asking for the required buffer size; otherwise fill the buffer (or -ERANGE
+    # if it's too small). The binding handles that here so the fs just returns
+    # the value/names.
+    def self._getxattr(path_ptr, name_ptr, value_ptr, size) : Int32
+      result = instance.getxattr(String.new(path_ptr), String.new(name_ptr))
+      case result
+      when Bytes
+        n = result.size
+        return n if size == 0
+        return -Errno::ERANGE.value if n.to_u64 > size
+        Slice.new(value_ptr, n).copy_from(result.to_unsafe, n)
+        n
+      else
+        result.as(Int32)
+      end
+    end
+
+    def self._listxattr(path_ptr, list_ptr, size) : Int32
+      result = instance.listxattr(String.new(path_ptr))
+      case result
+      when Array(String)
+        total = 0
+        result.each { |name| total += name.bytesize + 1 } # each name is NUL-terminated
+        return total if size == 0
+        return -Errno::ERANGE.value if total.to_u64 > size
+        offset = 0
+        result.each do |name|
+          bytes = name.to_slice
+          Slice.new(list_ptr + offset, bytes.size).copy_from(bytes.to_unsafe, bytes.size) if bytes.size > 0
+          (list_ptr + offset + bytes.size).value = 0_u8
+          offset += bytes.size + 1
+        end
+        total
+      else
+        result.as(Int32)
+      end
+    end
+
+    def self._removexattr(path_ptr, name_ptr) : Int32
+      instance.removexattr(String.new(path_ptr), String.new(name_ptr))
+    end
+
     # Wire every C operation to the corresponding bridge method, each wrapped in
     # `guard`. The procs are closure-free (they reference only module methods),
     # so they convert to plain C function pointers.
@@ -218,6 +290,16 @@ module Crystalfuse
       FuseWrap.fusewrap_register_utimens ->(p : Pointer(UInt8), tv : Pointer(LibC::Timespec), fi : Pointer(FuseWrap::FileInfo)) { guard { _utimens(p, tv, fi) } }
       FuseWrap.fusewrap_register_statfs ->(p : Pointer(UInt8), st : Void*) { guard { _statfs(p, st) } }
       FuseWrap.fusewrap_register_access ->(p : Pointer(UInt8), m : Int32) { guard { _access(p, m) } }
+      FuseWrap.fusewrap_register_fsync ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard { _fsync(p, ds, fi) } }
+      FuseWrap.fusewrap_register_fsyncdir ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard { _fsyncdir(p, ds, fi) } }
+      FuseWrap.fusewrap_register_opendir ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _opendir(p, fi) } }
+      FuseWrap.fusewrap_register_releasedir ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _releasedir(p, fi) } }
+      FuseWrap.fusewrap_register_mknod ->(p : Pointer(UInt8), m : LibC::ModeT, d : LibC::DevT) { guard { _mknod(p, m, d) } }
+      FuseWrap.fusewrap_register_link ->(t : Pointer(UInt8), l : Pointer(UInt8)) { guard { _link(t, l) } }
+      FuseWrap.fusewrap_register_setxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT, fl : Int32) { guard { _setxattr(p, n, v, sz, fl) } }
+      FuseWrap.fusewrap_register_getxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT) { guard { _getxattr(p, n, v, sz) } }
+      FuseWrap.fusewrap_register_listxattr ->(p : Pointer(UInt8), l : Pointer(UInt8), sz : LibC::SizeT) { guard { _listxattr(p, l, sz) } }
+      FuseWrap.fusewrap_register_removexattr ->(p : Pointer(UInt8), n : Pointer(UInt8)) { guard { _removexattr(p, n) } }
     end
   end
 end
