@@ -5,4 +5,7 @@
 @[Link("c")]
 lib LibC
   fun memset(dest : Void*, c : Int32, n : LibC::SizeT) : Void*
+
+  # stdlib's LibC declares getuid but not getgid.
+  fun getgid : GidT
 end

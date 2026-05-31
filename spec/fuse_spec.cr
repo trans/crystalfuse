@@ -50,6 +50,19 @@ describe Crystalfuse::FileAttr do
     (stat.st_mode.to_i32 & 0o777).should eq(0o444)
     stat.st_nlink.should eq(1)
   end
+
+  it "defaults ownership to the mounting process" do
+    attr = Crystalfuse::FileAttr.file(size: 0)
+    attr.uid.should eq(LibC.getuid)
+    attr.gid.should eq(LibC.getgid)
+  end
+
+  it "marshals explicit uid/gid into the struct stat" do
+    stat = LibC::Stat.new
+    Crystalfuse::FileAttr.file(size: 0, uid: 1234, gid: 5678).to_c(pointerof(stat))
+    stat.st_uid.should eq(1234)
+    stat.st_gid.should eq(5678)
+  end
 end
 
 describe Crystalfuse::FuseBridge do

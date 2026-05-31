@@ -23,6 +23,8 @@ class MemFS < Crystalfuse::FuseFS
   # A node in the tree: either a directory or a regular file.
   abstract class Node
     property perms : Int32
+    property uid : UInt32 = Crystalfuse::FileAttr::DEFAULT_UID
+    property gid : UInt32 = Crystalfuse::FileAttr::DEFAULT_GID
     property mtime : Time
 
     def initialize(@perms : Int32, @mtime : Time = Time.utc)
@@ -77,8 +79,8 @@ class MemFS < Crystalfuse::FuseFS
     node = @nodes[path]?
     return -Errno::ENOENT.value unless node
     case node
-    when DirNode  then Crystalfuse::FileAttr.dir(mode: node.perms, time: node.mtime)
-    when FileNode then Crystalfuse::FileAttr.file(size: node.size, mode: node.perms, time: node.mtime)
+    when DirNode  then Crystalfuse::FileAttr.dir(mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
+    when FileNode then Crystalfuse::FileAttr.file(size: node.size, mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
     else               -Errno::EIO.value
     end
   end
@@ -172,9 +174,13 @@ class MemFS < Crystalfuse::FuseFS
     0
   end
 
-  # Ownership is meaningless for this in-memory fs, so just accept it.
+  # Update ownership. FUSE passes (uid_t)-1 / (gid_t)-1 to mean "leave unchanged".
   def chown(path : String, uid : UInt32, gid : UInt32) : Int32
-    @nodes.has_key?(path) ? 0 : -Errno::ENOENT.value
+    node = @nodes[path]?
+    return -Errno::ENOENT.value unless node
+    node.uid = uid unless uid == UInt32::MAX
+    node.gid = gid unless gid == UInt32::MAX
+    0
   end
 
   def statfs(path : String) : Crystalfuse::StatVFS | Int32
