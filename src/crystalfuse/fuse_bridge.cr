@@ -22,6 +22,14 @@ module Crystalfuse
       @@instance.not_nil!
     end
 
+    # Log an exception that escaped a user's filesystem method.
+    def self.report(ex : Exception) : Nil
+      STDERR.puts("crystalfuse: uncaught #{ex.class}: #{ex.message}")
+      if bt = ex.backtrace?
+        STDERR.puts(bt.join('\n'))
+      end
+    end
+
     # Run a bridge operation, turning any uncaught exception into -EIO. Without
     # this, an exception raised in a user's filesystem method would unwind into
     # C and abort the whole process (or wedge the mount). `yield` is inlined, so
@@ -29,11 +37,20 @@ module Crystalfuse
     def self.guard(& : -> Int32) : Int32
       yield
     rescue ex
-      STDERR.puts("crystalfuse: uncaught #{ex.class}: #{ex.message}")
-      if bt = ex.backtrace?
-        STDERR.puts(bt.join('\n'))
-      end
+      report(ex)
       -Errno::EIO.value
+    end
+
+    def self._init : Nil
+      instance.init
+    rescue ex
+      report(ex)
+    end
+
+    def self._destroy : Nil
+      instance.destroy
+    rescue ex
+      report(ex)
     end
 
     def self._getattr(path_ptr, stat_ptr, fi) : Int32
@@ -179,6 +196,8 @@ module Crystalfuse
     # `guard`. The procs are closure-free (they reference only module methods),
     # so they convert to plain C function pointers.
     def self.register_callbacks
+      FuseWrap.fusewrap_register_init ->{ _init }
+      FuseWrap.fusewrap_register_destroy ->{ _destroy }
       FuseWrap.fusewrap_register_getattr ->(p : Pointer(UInt8), s : Pointer(LibC::Stat), fi : Pointer(FuseWrap::FileInfo)) { guard { _getattr(p, s, fi) } }
       FuseWrap.fusewrap_register_readdir ->(p : Pointer(UInt8), b : Void*, f : FuseWrap::FillDir, o : Int64, fi : Pointer(FuseWrap::FileInfo), fl : UInt32) { guard { _readdir(p, b, f, o, fi, fl) } }
       FuseWrap.fusewrap_register_open ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _open(p, fi) } }

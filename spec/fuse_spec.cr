@@ -48,6 +48,20 @@ private class HandleEchoFS < Crystalfuse::FuseFS
   end
 end
 
+# Records the lifecycle callbacks.
+private class LifecycleFS < Crystalfuse::FuseFS
+  property inited = false
+  property destroyed = false
+
+  def init : Nil
+    @inited = true
+  end
+
+  def destroy : Nil
+    @destroyed = true
+  end
+end
+
 describe Crystalfuse::FileAttr do
   it "builds a regular file attr with the right mode and size" do
     attr = Crystalfuse::FileAttr.file(size: 5, mode: 0o444)
@@ -86,6 +100,19 @@ describe Crystalfuse::FileAttr do
     Crystalfuse::FileAttr.file(size: 0, uid: 1234, gid: 5678).to_c(pointerof(stat))
     stat.st_uid.should eq(1234)
     stat.st_gid.should eq(5678)
+  end
+
+  it "derives block count and marshals ino/rdev/blksize" do
+    attr = Crystalfuse::FileAttr.file(size: 5000)
+    attr.blocks.should eq((5000 + 511) // 512) # 10 (512-byte units)
+    attr.blksize.should eq(4096)
+
+    attr.ino = 1234_u64
+    stat = LibC::Stat.new
+    attr.to_c(pointerof(stat))
+    stat.st_ino.should eq(1234)
+    stat.st_blocks.should eq(10)
+    stat.st_blksize.should eq(4096)
   end
 end
 
@@ -145,6 +172,17 @@ describe "file handles" do
     buf = Bytes.new(4)
     Crystalfuse::FuseBridge._read("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(4), 0_i64, pointerof(cfi))
     fs.seen_fh.should eq(0xCAFE) # ...and is handed back on read
+  end
+end
+
+describe "lifecycle hooks" do
+  it "dispatches init and destroy" do
+    fs = LifecycleFS.new
+    Crystalfuse::FuseBridge.set_instance(fs)
+    Crystalfuse::FuseBridge._init
+    Crystalfuse::FuseBridge._destroy
+    fs.inited.should be_true
+    fs.destroyed.should be_true
   end
 end
 

@@ -36,6 +36,8 @@ static access_cb_t   cb_access   = NULL;
 static utimens_cb_t  cb_utimens  = NULL;
 static release_cb_t  cb_release  = NULL;
 static flush_cb_t    cb_flush    = NULL;
+static init_cb_t     cb_init     = NULL;
+static destroy_cb_t  cb_destroy  = NULL;
 
 // --- Registration ---
 void fusewrap_register_getattr(getattr_cb_t cb)   { cb_getattr  = cb; }
@@ -58,6 +60,8 @@ void fusewrap_register_access(access_cb_t cb)     { cb_access   = cb; }
 void fusewrap_register_utimens(utimens_cb_t cb)   { cb_utimens  = cb; }
 void fusewrap_register_release(release_cb_t cb)   { cb_release  = cb; }
 void fusewrap_register_flush(flush_cb_t cb)       { cb_flush    = cb; }
+void fusewrap_register_init(init_cb_t cb)         { cb_init     = cb; }
+void fusewrap_register_destroy(destroy_cb_t cb)   { cb_destroy  = cb; }
 
 // --- Operation wrappers ---
 static int wrapper_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
@@ -164,6 +168,20 @@ static int wrapper_flush(const char *path, struct fuse_file_info *fi) {
     return cb_flush(path, fi);
 }
 
+// init returns a private_data pointer; we don't use one (state lives in the
+// Crystal singleton), so return NULL. conn/cfg are ignored for now.
+static void *wrapper_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
+    (void) conn;
+    (void) cfg;
+    if (cb_init) cb_init();
+    return NULL;
+}
+
+static void wrapper_destroy(void *private_data) {
+    (void) private_data;
+    if (cb_destroy) cb_destroy();
+}
+
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
@@ -200,6 +218,8 @@ static struct fuse_operations wrapper_ops = {
     .utimens  = wrapper_utimens,
     .release  = wrapper_release,
     .flush    = wrapper_flush,
+    .init     = wrapper_init,
+    .destroy  = wrapper_destroy,
 };
 
 // Main call to mount!

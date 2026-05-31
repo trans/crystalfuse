@@ -11,6 +11,14 @@ module Crystalfuse
   # `Array(String)`, `Bytes`) or a negative `Errno` value to signal failure,
   # e.g. `-Errno::ENOENT.value`.
   abstract class FuseFS
+    # Called once when the filesystem is mounted, before any other operation.
+    def init : Nil
+    end
+
+    # Called once when the filesystem is unmounted.
+    def destroy : Nil
+    end
+
     # Attributes for the file at *path* (the `stat(2)` of FUSE).
     def getattr(path : String) : FileAttr | Int32
       -Errno::ENOENT.value

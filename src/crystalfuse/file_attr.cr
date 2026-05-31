@@ -7,14 +7,18 @@ module Crystalfuse
     DEFAULT_UID = LibC.getuid
     DEFAULT_GID = LibC.getgid
 
-    property mode  : Int32 = 0o100644 # regular file, rw-r--r--
-    property size  : Int64 = 0
-    property nlink : Int32 = 1
-    property uid   : UInt32 = DEFAULT_UID
-    property gid   : UInt32 = DEFAULT_GID
-    property atime : Time = Time.utc
-    property mtime : Time = Time.utc
-    property ctime : Time = Time.utc
+    property mode    : Int32 = 0o100644 # regular file, rw-r--r--
+    property size    : Int64 = 0
+    property nlink   : Int32 = 1
+    property uid     : UInt32 = DEFAULT_UID
+    property gid     : UInt32 = DEFAULT_GID
+    property ino     : UInt64 = 0    # inode number (0 lets the kernel assign one)
+    property rdev    : UInt64 = 0    # device id, for device/special files
+    property blocks  : Int64 = 0     # allocated size in 512-byte blocks (for du)
+    property blksize : Int64 = 4096  # preferred I/O block size
+    property atime   : Time = Time.utc
+    property mtime   : Time = Time.utc
+    property ctime   : Time = Time.utc
 
     def initialize(@mode : Int32, @size : Int64, @nlink : Int32,
                    @atime : Time, @mtime : Time, @ctime : Time,
@@ -23,14 +27,18 @@ module Crystalfuse
 
     def to_c(stat : Pointer(LibC::Stat)) : Nil
       LibC.memset(stat.as(Void*), 0, sizeof(LibC::Stat))
-      stat.value.st_mode  = LibC::ModeT.new(mode)
-      stat.value.st_nlink = LibC::NlinkT.new(nlink)
-      stat.value.st_size  = LibC::OffT.new(size)
-      stat.value.st_uid   = LibC::UidT.new(uid)
-      stat.value.st_gid   = LibC::GidT.new(gid)
-      stat.value.st_atim  = to_timespec(atime)
-      stat.value.st_mtim  = to_timespec(mtime)
-      stat.value.st_ctim  = to_timespec(ctime)
+      stat.value.st_mode    = LibC::ModeT.new(mode)
+      stat.value.st_nlink   = LibC::NlinkT.new(nlink)
+      stat.value.st_size    = LibC::OffT.new(size)
+      stat.value.st_uid     = LibC::UidT.new(uid)
+      stat.value.st_gid     = LibC::GidT.new(gid)
+      stat.value.st_ino     = ino     # field types match the property types,
+      stat.value.st_rdev    = rdev    # so no conversion is needed here
+      stat.value.st_blocks  = blocks
+      stat.value.st_blksize = blksize
+      stat.value.st_atim    = to_timespec(atime)
+      stat.value.st_mtim    = to_timespec(mtime)
+      stat.value.st_ctim    = to_timespec(ctime)
     end
 
     private def to_timespec(time : Time) : LibC::Timespec
@@ -45,11 +53,14 @@ module Crystalfuse
         uid.to_u32, gid.to_u32)
     end
 
-    # Convenience constructor for a regular file.
+    # Convenience constructor for a regular file. `blocks` is derived from the
+    # size (rounded up to 512-byte units) so tools like `du` report sanely.
     def self.file(size : Int, mode = 0o644, time = Time.utc,
                   uid = DEFAULT_UID, gid = DEFAULT_GID) : self
-      new((LibC::S_IFREG | mode).to_i32, size.to_i64, 1, time, time, time,
+      attr = new((LibC::S_IFREG | mode).to_i32, size.to_i64, 1, time, time, time,
         uid.to_u32, gid.to_u32)
+      attr.blocks = (attr.size + 511) // 512
+      attr
     end
 
     # Convenience constructor for a symbolic link.

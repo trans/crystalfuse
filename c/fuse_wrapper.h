@@ -36,6 +36,8 @@ typedef int (*access_cb_t)(const char *, int);
 typedef int (*utimens_cb_t)(const char *, const struct timespec[2], struct fuse_file_info *);
 typedef int (*release_cb_t)(const char *, struct fuse_file_info *);
 typedef int (*flush_cb_t)(const char *, struct fuse_file_info *);
+typedef void (*init_cb_t)(void);
+typedef void (*destroy_cb_t)(void);
 
 // --- Registration functions ---
 void fusewrap_register_getattr(getattr_cb_t cb);
@@ -58,6 +60,8 @@ void fusewrap_register_access(access_cb_t cb);
 void fusewrap_register_utimens(utimens_cb_t cb);
 void fusewrap_register_release(release_cb_t cb);
 void fusewrap_register_flush(flush_cb_t cb);
+void fusewrap_register_init(init_cb_t cb);
+void fusewrap_register_destroy(destroy_cb_t cb);
 
 // Populate a `struct statvfs` from Crystal. The C compiler owns the struct
 // layout here, so Crystal never has to know it (which varies by libc version).

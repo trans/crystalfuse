@@ -11,9 +11,13 @@ CRYSTAL_BIN := run
 CC     := gcc
 CFLAGS := -O2 -Wall -Wextra -fPIC $(shell pkg-config fuse3 --cflags)
 
-.PHONY: all clean unmount spec
+.PHONY: all lib clean unmount spec
 
 all: $(CRYSTAL_BIN)
+
+# Build just the C shim — what downstream users need (and the shard's
+# postinstall hook runs). Avoids compiling the Crystal example at install time.
+lib: $(C_LIB)
 
 # Crystal build. Link flags (the static shim + libfuse3) are declared in
 # src/crystalfuse/fuse_wrap.cr via @[Link], so nothing is needed here.

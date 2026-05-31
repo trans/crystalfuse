@@ -8,3 +8,8 @@ authors:
 crystal: 1.16+
 
 license: MIT
+
+# Build the C shim (c/libfusewrap.a) automatically on `shards install`, so a
+# downstream user doesn't have to run `make` by hand. Needs gcc + fuse3 headers.
+scripts:
+  postinstall: make lib
