@@ -7,6 +7,8 @@
 #include <fuse3/fuse.h>
 #include <sys/statvfs.h>
 #include <time.h>
+#include <fcntl.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +50,14 @@ typedef int (*setxattr_cb_t)(const char *, const char *, const char *, size_t, i
 typedef int (*getxattr_cb_t)(const char *, const char *, char *, size_t);
 typedef int (*listxattr_cb_t)(const char *, char *, size_t);
 typedef int (*removexattr_cb_t)(const char *, const char *);
+typedef off_t (*lseek_cb_t)(const char *, off_t, int, struct fuse_file_info *);
+typedef int (*fallocate_cb_t)(const char *, int, off_t, off_t, struct fuse_file_info *);
+typedef ssize_t (*copy_file_range_cb_t)(const char *, struct fuse_file_info *, off_t, const char *, struct fuse_file_info *, off_t, size_t, int);
+typedef int (*flock_cb_t)(const char *, struct fuse_file_info *, int);
+typedef int (*lock_cb_t)(const char *, struct fuse_file_info *, int, struct flock *);
+typedef int (*ioctl_cb_t)(const char *, unsigned int, void *, struct fuse_file_info *, unsigned int, void *);
+typedef int (*poll_cb_t)(const char *, struct fuse_file_info *, struct fuse_pollhandle *, unsigned int *);
+typedef int (*bmap_cb_t)(const char *, size_t, uint64_t *);
 
 // --- Registration functions ---
 void fusewrap_register_getattr(getattr_cb_t cb);
@@ -82,6 +92,14 @@ void fusewrap_register_setxattr(setxattr_cb_t cb);
 void fusewrap_register_getxattr(getxattr_cb_t cb);
 void fusewrap_register_listxattr(listxattr_cb_t cb);
 void fusewrap_register_removexattr(removexattr_cb_t cb);
+void fusewrap_register_lseek(lseek_cb_t cb);
+void fusewrap_register_fallocate(fallocate_cb_t cb);
+void fusewrap_register_copy_file_range(copy_file_range_cb_t cb);
+void fusewrap_register_flock(flock_cb_t cb);
+void fusewrap_register_lock(lock_cb_t cb);
+void fusewrap_register_ioctl(ioctl_cb_t cb);
+void fusewrap_register_poll(poll_cb_t cb);
+void fusewrap_register_bmap(bmap_cb_t cb);
 
 // Populate a `struct statvfs` from Crystal. The C compiler owns the struct
 // layout here, so Crystal never has to know it (which varies by libc version).

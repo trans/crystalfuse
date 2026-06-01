@@ -204,6 +204,56 @@ module Crystalfuse
       0
     end
 
+    # --- Advanced / less-common operations ---
+
+    # Reposition the read/write offset; mainly SEEK_DATA/SEEK_HOLE for sparse
+    # files. Return the resulting offset, or a negative errno.
+    def lseek(path : String, offset : Int64, whence : Int32, fi : FileInfo) : Int64
+      -Errno::ENOSYS.value.to_i64
+    end
+
+    # Preallocate or punch holes in a file's space (see fallocate(2) *mode*).
+    def fallocate(path : String, mode : Int32, offset : Int64, length : Int64, fi : FileInfo) : Int32
+      -Errno::ENOSYS.value
+    end
+
+    # Server-side copy of *size* bytes between two open files. Return the number
+    # of bytes copied, or a negative errno.
+    def copy_file_range(path_in : String, fi_in : FileInfo, offset_in : Int64,
+                        path_out : String, fi_out : FileInfo, offset_out : Int64,
+                        size : UInt64, flags : Int32) : Int64
+      -Errno::ENOSYS.value.to_i64
+    end
+
+    # BSD-style whole-file advisory lock (*op* is LOCK_SH / LOCK_EX / LOCK_UN …).
+    def flock(path : String, fi : FileInfo, op : Int32) : Int32
+      -Errno::ENOSYS.value
+    end
+
+    # POSIX (fcntl) advisory lock. *cmd* is F_GETLK / F_SETLK / F_SETLKW; *lock*
+    # points at a `LibC::Flock` to read and (for F_GETLK) write back.
+    def lock(path : String, fi : FileInfo, cmd : Int32, lock : Pointer(LibC::Flock)) : Int32
+      -Errno::ENOSYS.value
+    end
+
+    # Device-style ioctl; *arg*/*data* are raw pointers per the ioctl protocol.
+    def ioctl(path : String, cmd : UInt32, arg : Pointer(Void),
+              fi : FileInfo, flags : UInt32, data : Pointer(Void)) : Int32
+      -Errno::ENOSYS.value
+    end
+
+    # Poll for I/O readiness; set the ready events into *reventsp*. *ph* is an
+    # opaque poll handle for later notification.
+    def poll(path : String, fi : FileInfo, ph : Pointer(Void), reventsp : Pointer(UInt32)) : Int32
+      -Errno::ENOSYS.value
+    end
+
+    # Map a logical file block to a device block (for block-backed filesystems).
+    # *idx* is in/out: the requested block in, the mapped block out.
+    def bmap(path : String, blocksize : UInt64, idx : Pointer(UInt64)) : Int32
+      -Errno::ENOSYS.value
+    end
+
     # Mount this filesystem, handing *args* (argv-style) straight to libfuse.
     # Don't override this.
     def mount(args : Array(String)) : Int32

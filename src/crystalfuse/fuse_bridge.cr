@@ -41,6 +41,14 @@ module Crystalfuse
       -Errno::EIO.value
     end
 
+    # Like `guard`, for operations that return an off_t/ssize_t (Int64).
+    def self.guard64(& : -> Int64) : Int64
+      yield
+    rescue ex
+      report(ex)
+      -Errno::EIO.value.to_i64
+    end
+
     def self._init : Nil
       instance.init
     rescue ex
@@ -264,6 +272,39 @@ module Crystalfuse
       instance.removexattr(String.new(path_ptr), String.new(name_ptr))
     end
 
+    def self._lseek(path_ptr, offset, whence, fi) : Int64
+      instance.lseek(String.new(path_ptr), offset, whence, FileInfo.new(fi))
+    end
+
+    def self._fallocate(path_ptr, mode, offset, length, fi) : Int32
+      instance.fallocate(String.new(path_ptr), mode, offset, length, FileInfo.new(fi))
+    end
+
+    def self._copy_file_range(in_ptr, fi_in, off_in, out_ptr, fi_out, off_out, size, flags) : Int64
+      instance.copy_file_range(String.new(in_ptr), FileInfo.new(fi_in), off_in,
+        String.new(out_ptr), FileInfo.new(fi_out), off_out, size, flags)
+    end
+
+    def self._flock(path_ptr, fi, op) : Int32
+      instance.flock(String.new(path_ptr), FileInfo.new(fi), op)
+    end
+
+    def self._lock(path_ptr, fi, cmd, lock_ptr) : Int32
+      instance.lock(String.new(path_ptr), FileInfo.new(fi), cmd, lock_ptr)
+    end
+
+    def self._ioctl(path_ptr, cmd, arg, fi, flags, data) : Int32
+      instance.ioctl(String.new(path_ptr), cmd, arg, FileInfo.new(fi), flags, data)
+    end
+
+    def self._poll(path_ptr, fi, ph, reventsp) : Int32
+      instance.poll(String.new(path_ptr), FileInfo.new(fi), ph, reventsp)
+    end
+
+    def self._bmap(path_ptr, blocksize, idx) : Int32
+      instance.bmap(String.new(path_ptr), blocksize, idx)
+    end
+
     # Wire every C operation to the corresponding bridge method, each wrapped in
     # `guard`. The procs are closure-free (they reference only module methods),
     # so they convert to plain C function pointers.
@@ -300,6 +341,14 @@ module Crystalfuse
       FuseWrap.fusewrap_register_getxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT) { guard { _getxattr(p, n, v, sz) } }
       FuseWrap.fusewrap_register_listxattr ->(p : Pointer(UInt8), l : Pointer(UInt8), sz : LibC::SizeT) { guard { _listxattr(p, l, sz) } }
       FuseWrap.fusewrap_register_removexattr ->(p : Pointer(UInt8), n : Pointer(UInt8)) { guard { _removexattr(p, n) } }
+      FuseWrap.fusewrap_register_lseek ->(p : Pointer(UInt8), o : Int64, w : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard64 { _lseek(p, o, w, fi) } }
+      FuseWrap.fusewrap_register_fallocate ->(p : Pointer(UInt8), m : Int32, o : Int64, l : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _fallocate(p, m, o, l, fi) } }
+      FuseWrap.fusewrap_register_copy_file_range ->(pi : Pointer(UInt8), fii : Pointer(FuseWrap::FileInfo), oi : Int64, po : Pointer(UInt8), fio : Pointer(FuseWrap::FileInfo), oo : Int64, sz : LibC::SizeT, fl : Int32) { guard64 { _copy_file_range(pi, fii, oi, po, fio, oo, sz, fl) } }
+      FuseWrap.fusewrap_register_flock ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), op : Int32) { guard { _flock(p, fi, op) } }
+      FuseWrap.fusewrap_register_lock ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), cmd : Int32, lk : Pointer(LibC::Flock)) { guard { _lock(p, fi, cmd, lk) } }
+      FuseWrap.fusewrap_register_ioctl ->(p : Pointer(UInt8), cmd : UInt32, arg : Void*, fi : Pointer(FuseWrap::FileInfo), fl : UInt32, data : Void*) { guard { _ioctl(p, cmd, arg, fi, fl, data) } }
+      FuseWrap.fusewrap_register_poll ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), ph : Void*, rev : Pointer(UInt32)) { guard { _poll(p, fi, ph, rev) } }
+      FuseWrap.fusewrap_register_bmap ->(p : Pointer(UInt8), bs : LibC::SizeT, idx : Pointer(UInt64)) { guard { _bmap(p, bs, idx) } }
     end
   end
 end

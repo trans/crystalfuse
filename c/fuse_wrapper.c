@@ -48,6 +48,14 @@ static setxattr_cb_t    cb_setxattr    = NULL;
 static getxattr_cb_t    cb_getxattr    = NULL;
 static listxattr_cb_t   cb_listxattr   = NULL;
 static removexattr_cb_t cb_removexattr = NULL;
+static lseek_cb_t           cb_lseek           = NULL;
+static fallocate_cb_t       cb_fallocate       = NULL;
+static copy_file_range_cb_t cb_copy_file_range = NULL;
+static flock_cb_t           cb_flock           = NULL;
+static lock_cb_t            cb_lock            = NULL;
+static ioctl_cb_t           cb_ioctl           = NULL;
+static poll_cb_t            cb_poll            = NULL;
+static bmap_cb_t            cb_bmap            = NULL;
 
 // --- Registration ---
 void fusewrap_register_getattr(getattr_cb_t cb)   { cb_getattr  = cb; }
@@ -82,6 +90,14 @@ void fusewrap_register_setxattr(setxattr_cb_t cb)       { cb_setxattr    = cb; }
 void fusewrap_register_getxattr(getxattr_cb_t cb)       { cb_getxattr    = cb; }
 void fusewrap_register_listxattr(listxattr_cb_t cb)     { cb_listxattr   = cb; }
 void fusewrap_register_removexattr(removexattr_cb_t cb) { cb_removexattr = cb; }
+void fusewrap_register_lseek(lseek_cb_t cb)                     { cb_lseek           = cb; }
+void fusewrap_register_fallocate(fallocate_cb_t cb)             { cb_fallocate       = cb; }
+void fusewrap_register_copy_file_range(copy_file_range_cb_t cb) { cb_copy_file_range = cb; }
+void fusewrap_register_flock(flock_cb_t cb)                     { cb_flock           = cb; }
+void fusewrap_register_lock(lock_cb_t cb)                       { cb_lock            = cb; }
+void fusewrap_register_ioctl(ioctl_cb_t cb)                     { cb_ioctl           = cb; }
+void fusewrap_register_poll(poll_cb_t cb)                       { cb_poll            = cb; }
+void fusewrap_register_bmap(bmap_cb_t cb)                       { cb_bmap            = cb; }
 
 // --- Operation wrappers ---
 static int wrapper_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
@@ -252,6 +268,50 @@ static int wrapper_removexattr(const char *path, const char *name) {
     return cb_removexattr(path, name);
 }
 
+static off_t wrapper_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi) {
+    if (!cb_lseek) return -ENOSYS;
+    return cb_lseek(path, off, whence, fi);
+}
+
+static int wrapper_fallocate(const char *path, int mode, off_t offset, off_t length, struct fuse_file_info *fi) {
+    if (!cb_fallocate) return -ENOSYS;
+    return cb_fallocate(path, mode, offset, length, fi);
+}
+
+static ssize_t wrapper_copy_file_range(const char *path_in, struct fuse_file_info *fi_in, off_t off_in,
+                                       const char *path_out, struct fuse_file_info *fi_out, off_t off_out,
+                                       size_t size, int flags) {
+    if (!cb_copy_file_range) return -ENOSYS;
+    return cb_copy_file_range(path_in, fi_in, off_in, path_out, fi_out, off_out, size, flags);
+}
+
+static int wrapper_flock(const char *path, struct fuse_file_info *fi, int op) {
+    if (!cb_flock) return -ENOSYS;
+    return cb_flock(path, fi, op);
+}
+
+static int wrapper_lock(const char *path, struct fuse_file_info *fi, int cmd, struct flock *lk) {
+    if (!cb_lock) return -ENOSYS;
+    return cb_lock(path, fi, cmd, lk);
+}
+
+static int wrapper_ioctl(const char *path, unsigned int cmd, void *arg,
+                         struct fuse_file_info *fi, unsigned int flags, void *data) {
+    if (!cb_ioctl) return -ENOSYS;
+    return cb_ioctl(path, cmd, arg, fi, flags, data);
+}
+
+static int wrapper_poll(const char *path, struct fuse_file_info *fi,
+                        struct fuse_pollhandle *ph, unsigned int *reventsp) {
+    if (!cb_poll) return -ENOSYS;
+    return cb_poll(path, fi, ph, reventsp);
+}
+
+static int wrapper_bmap(const char *path, size_t blocksize, uint64_t *idx) {
+    if (!cb_bmap) return -ENOSYS;
+    return cb_bmap(path, blocksize, idx);
+}
+
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
@@ -300,6 +360,14 @@ static struct fuse_operations wrapper_ops = {
     .getxattr    = wrapper_getxattr,
     .listxattr   = wrapper_listxattr,
     .removexattr = wrapper_removexattr,
+    .lseek           = wrapper_lseek,
+    .fallocate       = wrapper_fallocate,
+    .copy_file_range = wrapper_copy_file_range,
+    .flock           = wrapper_flock,
+    .lock            = wrapper_lock,
+    .ioctl           = wrapper_ioctl,
+    .poll            = wrapper_poll,
+    .bmap            = wrapper_bmap,
 };
 
 // Main call to mount!

@@ -43,6 +43,14 @@ module Crystalfuse
     alias GetxattrCallback    = (Pointer(UInt8), Pointer(UInt8), Pointer(UInt8), LibC::SizeT) -> Int32
     alias ListxattrCallback   = (Pointer(UInt8), Pointer(UInt8), LibC::SizeT) -> Int32
     alias RemovexattrCallback = (Pointer(UInt8), Pointer(UInt8)) -> Int32
+    alias LseekCallback         = (Pointer(UInt8), Int64, Int32, Pointer(FileInfo)) -> Int64
+    alias FallocateCallback     = (Pointer(UInt8), Int32, Int64, Int64, Pointer(FileInfo)) -> Int32
+    alias CopyFileRangeCallback = (Pointer(UInt8), Pointer(FileInfo), Int64, Pointer(UInt8), Pointer(FileInfo), Int64, LibC::SizeT, Int32) -> LibC::SSizeT
+    alias FlockCallback         = (Pointer(UInt8), Pointer(FileInfo), Int32) -> Int32
+    alias LockCallback          = (Pointer(UInt8), Pointer(FileInfo), Int32, Pointer(LibC::Flock)) -> Int32
+    alias IoctlCallback         = (Pointer(UInt8), UInt32, Void*, Pointer(FileInfo), UInt32, Void*) -> Int32
+    alias PollCallback          = (Pointer(UInt8), Pointer(FileInfo), Void*, Pointer(UInt32)) -> Int32
+    alias BmapCallback          = (Pointer(UInt8), LibC::SizeT, Pointer(UInt64)) -> Int32
     # tv is a `struct timespec[2]` — [0] = atime, [1] = mtime — which decays to a pointer.
     alias UtimensCallback  = (Pointer(UInt8), Pointer(LibC::Timespec), Pointer(FileInfo)) -> Int32
 
@@ -78,6 +86,14 @@ module Crystalfuse
     fun fusewrap_register_getxattr(cb : GetxattrCallback) : Void
     fun fusewrap_register_listxattr(cb : ListxattrCallback) : Void
     fun fusewrap_register_removexattr(cb : RemovexattrCallback) : Void
+    fun fusewrap_register_lseek(cb : LseekCallback) : Void
+    fun fusewrap_register_fallocate(cb : FallocateCallback) : Void
+    fun fusewrap_register_copy_file_range(cb : CopyFileRangeCallback) : Void
+    fun fusewrap_register_flock(cb : FlockCallback) : Void
+    fun fusewrap_register_lock(cb : LockCallback) : Void
+    fun fusewrap_register_ioctl(cb : IoctlCallback) : Void
+    fun fusewrap_register_poll(cb : PollCallback) : Void
+    fun fusewrap_register_bmap(cb : BmapCallback) : Void
 
     fun fusewrap_main(argc : Int32, argv : Pointer(Pointer(UInt8))) : Int32
 

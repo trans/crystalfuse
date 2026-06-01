@@ -93,8 +93,10 @@ loop single-threaded for now.
 `init`, `destroy`, `getattr`, `readdir`, `opendir`, `releasedir`, `fsyncdir`,
 `open`, `release`, `flush`, `fsync`, `read`, `write`, `create`, `truncate`,
 `mknod`, `unlink`, `mkdir`, `rmdir`, `rename`, `link`, `symlink`, `readlink`,
-`chmod`, `chown`, `utimens`, `statfs`, `access`, and the xattr family
-(`setxattr`, `getxattr`, `listxattr`, `removexattr`).
+`chmod`, `chown`, `utimens`, `statfs`, `access`, the xattr family
+(`setxattr`, `getxattr`, `listxattr`, `removexattr`), and the advanced ops
+`lseek`, `fallocate`, `copy_file_range`, `flock`, `lock`, `ioctl`, `poll`,
+`bmap` — essentially the whole `fuse_operations` table.
 
 For xattrs your methods just return Crystal values — `getxattr` returns the
 value as `Bytes` (or `-Errno::ENODATA.value`), `listxattr` returns the names as

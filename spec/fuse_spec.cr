@@ -272,6 +272,47 @@ describe "mknod / link bridge" do
   end
 end
 
+# Exercises the advanced ops, including an Int64 return and a pointer out-param.
+private class OpsFS < Crystalfuse::FuseFS
+  def lseek(path : String, offset : Int64, whence : Int32, fi : Crystalfuse::FileInfo) : Int64
+    offset + 100
+  end
+
+  def fallocate(path : String, mode : Int32, offset : Int64, length : Int64, fi : Crystalfuse::FileInfo) : Int32
+    mode + 1
+  end
+
+  def bmap(path : String, blocksize : UInt64, idx : Pointer(UInt64)) : Int32
+    idx.value = idx.value + 1 # prove the in/out index round-trips
+    0
+  end
+end
+
+describe "advanced ops bridge" do
+  it "dispatches lseek and returns an Int64 offset" do
+    Crystalfuse::FuseBridge.set_instance(OpsFS.new)
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    Crystalfuse::FuseBridge._lseek("/f".to_unsafe, 50_i64, 0, pointerof(cfi)).should eq(150_i64)
+  end
+
+  it "dispatches fallocate" do
+    Crystalfuse::FuseBridge.set_instance(OpsFS.new)
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    Crystalfuse::FuseBridge._fallocate("/f".to_unsafe, 7, 0_i64, 4096_i64, pointerof(cfi)).should eq(8)
+  end
+
+  it "dispatches bmap with an in/out block index" do
+    Crystalfuse::FuseBridge.set_instance(OpsFS.new)
+    idx = 41_u64
+    Crystalfuse::FuseBridge._bmap("/f".to_unsafe, LibC::SizeT.new(512), pointerof(idx)).should eq(0)
+    idx.should eq(42)
+  end
+
+  it "guard64 converts an exception into -EIO" do
+    Crystalfuse::FuseBridge.guard64 { raise "boom" }.should eq(-Errno::EIO.value.to_i64)
+  end
+end
+
 describe Crystalfuse::FuseBridge do
   it "dispatches getattr through the bridge and fills the stat buffer" do
     Crystalfuse::FuseBridge.set_instance(TestFS.new)
