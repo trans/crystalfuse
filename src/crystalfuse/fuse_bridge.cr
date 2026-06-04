@@ -22,12 +22,15 @@ module Crystalfuse
       @@instance.not_nil!
     end
 
-    # Log an exception that escaped a user's filesystem method.
+    # Log an exception that escaped a user's filesystem method. Writes straight
+    # to fd 2 rather than via STDERR — Crystal's buffered IO can reach into the
+    # fiber scheduler, which isn't safe on a libfuse worker thread.
     def self.report(ex : Exception) : Nil
-      STDERR.puts("crystalfuse: uncaught #{ex.class}: #{ex.message}")
-      if bt = ex.backtrace?
-        STDERR.puts(bt.join('\n'))
+      msg = String.build do |io|
+        io << "crystalfuse: uncaught " << ex.class << ": " << ex.message << '\n'
+        ex.backtrace?.try(&.each { |line| io << "  " << line << '\n' })
       end
+      LibC.write(2, msg.to_unsafe.as(Void*), LibC::SizeT.new(msg.bytesize))
     end
 
     # Run a bridge operation, turning any uncaught exception into -EIO. Without
@@ -35,6 +38,7 @@ module Crystalfuse
     # C and abort the whole process (or wedge the mount). `yield` is inlined, so
     # the enclosing proc stays a plain C function pointer.
     def self.guard(& : -> Int32) : Int32
+      FuseWrap.fusewrap_register_current_thread # make this worker thread GC-safe
       yield
     rescue ex
       report(ex)
@@ -43,6 +47,7 @@ module Crystalfuse
 
     # Like `guard`, for operations that return an off_t/ssize_t (Int64).
     def self.guard64(& : -> Int64) : Int64
+      FuseWrap.fusewrap_register_current_thread
       yield
     rescue ex
       report(ex)

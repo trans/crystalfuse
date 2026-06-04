@@ -13,7 +13,43 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include "fuse_wrapper.h"
+
+// --- GC thread registration ---
+// libfuse's multi-threaded loop runs our callbacks on worker threads it
+// created itself. Crystal's GC (Boehm) only knows about threads it created, so
+// allocating on these foreign threads crashes once a collection fires. We
+// register each worker with the GC on its first callback (declaring the Boehm
+// entry points here to avoid a gc.h build dependency). A pthread key
+// unregisters the thread when it exits.
+struct GC_stack_base { void *mem_base; };
+extern void GC_allow_register_threads(void);
+extern int  GC_get_stack_base(struct GC_stack_base *);
+extern int  GC_register_my_thread(struct GC_stack_base *);
+extern int  GC_unregister_my_thread(void);
+
+static pthread_key_t  gc_key;
+static pthread_once_t gc_once = PTHREAD_ONCE_INIT;
+
+static void gc_thread_exit(void *v) { (void) v; GC_unregister_my_thread(); }
+
+static void gc_setup(void) {
+    GC_allow_register_threads();
+    pthread_key_create(&gc_key, gc_thread_exit);
+}
+
+// Register the calling thread with the GC if it isn't already. Idempotent and
+// cheap (a thread-local check) after the first call. Called from the Crystal
+// bridge's guard before any allocation happens on the worker thread.
+void fusewrap_register_current_thread(void) {
+    pthread_once(&gc_once, gc_setup);
+    if (pthread_getspecific(gc_key)) return;
+    struct GC_stack_base sb;
+    GC_get_stack_base(&sb);
+    GC_register_my_thread(&sb);
+    pthread_setspecific(gc_key, (void *) 1);
+}
 
 // --- Registered callbacks ---
 static getattr_cb_t  cb_getattr  = NULL;

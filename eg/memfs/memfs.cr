@@ -14,9 +14,10 @@
 #   ls -lR ./tmp/mnt
 # Unmount with `fusermount3 -u ./tmp/mnt` (or `make unmount`).
 #
-# NOTE: the example mounts single-threaded (`-s`). libfuse's multi-threaded
-# mode runs callbacks on worker threads that Crystal's runtime/GC doesn't know
-# about, which isn't safe; `-s` keeps every callback on the main thread.
+# NOTE: this example mounts single-threaded (`-s`). The binding itself is
+# multi-threaded-safe (it registers libfuse's worker threads with the GC), but
+# memfs is backed by a plain unsynchronized Hash, so `-s` avoids data races.
+# See eg/hello for a filesystem that runs with the full worker pool.
 require "../../src/crystalfuse"
 
 class MemFS < Crystalfuse::FuseFS

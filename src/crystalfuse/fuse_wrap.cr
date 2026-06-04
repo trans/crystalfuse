@@ -96,6 +96,7 @@ module Crystalfuse
     fun fusewrap_register_bmap(cb : BmapCallback) : Void
 
     fun fusewrap_main(argc : Int32, argv : Pointer(Pointer(UInt8))) : Int32
+    fun fusewrap_register_current_thread : Void
 
     fun fusewrap_fill_statvfs(st : Void*,
                               bsize : LibC::ULong, frsize : LibC::ULong,

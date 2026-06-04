@@ -84,9 +84,8 @@ crystal run eg/memfs/memfs.cr -- -f ./tmp/mnt
 echo hi > ./tmp/mnt/note.txt && cat ./tmp/mnt/note.txt
 ```
 
-The examples mount single-threaded (`-s`). libfuse's multi-threaded mode runs
-callbacks on worker threads that Crystal's runtime/GC don't manage, so keep the
-loop single-threaded for now.
+`eg/hello` runs multithreaded; `eg/memfs` mounts single-threaded (`-s`) because
+its backing `Hash` isn't thread-safe. See [Threading](#threading) below.
 
 ## Supported operations
 
@@ -133,6 +132,26 @@ For mapping handles to your own state there's an **optional** helper,
 `Crystalfuse::HandleTable(T)` (`require "crystalfuse/handle_table"`); it's not
 loaded by default. See `eg/handlefs/handlefs.cr` for a complete read-only
 example built on handles.
+
+## Threading
+
+libfuse dispatches operations concurrently on a pool of worker threads. The
+binding registers each of those threads with Crystal's GC on entry, so running
+multithreaded is safe at the runtime level — `eg/hello` survives heavy
+concurrent load (verified with 16 readers hammering it at once).
+
+Two rules for a *writable* or stateful filesystem:
+
+- **You own your data-race safety** — the same contract as a C FUSE filesystem.
+  Guard any shared mutable state your operations touch.
+- **Don't use Crystal's fiber concurrency inside an operation.** Callbacks run
+  on libfuse's own threads, which Crystal's fiber scheduler doesn't manage, so a
+  fiber-blocking call — `Mutex#lock` under contention, channels, `sleep`, async
+  IO — would crash. Use OS-level locking instead, or simplest: mount
+  single-threaded with `-s`.
+
+`eg/memfs` takes the simple route and mounts `-s`; `eg/hello`, being read-only
+and data-race-free, runs with the full worker pool.
 
 ## Contributing
 
