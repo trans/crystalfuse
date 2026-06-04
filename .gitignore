@@ -13,6 +13,7 @@
 /run
 /memrun
 /handlerun
+/ptrun
 /c/*.o
 /c/*.so
 /c/*.a
