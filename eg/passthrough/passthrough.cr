@@ -24,7 +24,7 @@ lib LibCExtra
   fun truncate(path : LibC::Char*, length : LibC::OffT) : LibC::Int
 end
 
-class PassthroughFS < Crystalfuse::FuseFS
+class PassthroughFS < Crystalfuse::FS
   def initialize(@root : String)
   end
 

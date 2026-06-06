@@ -4,7 +4,7 @@
 # with `require "crystalfuse/handle_table"` if you want a ready-made registry
 # for file handles.
 #
-# Typical use from a FuseFS:
+# Typical use from a FileSystem:
 #
 #     @open = Crystalfuse::HandleTable(MyOpenFile).new
 #

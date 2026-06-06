@@ -7,7 +7,7 @@
 # and read it with `cat ./mnt/hello.txt`. Unmount with `fusermount3 -u ./mnt`.
 require "../../src/crystalfuse"
 
-class HelloFS < Crystalfuse::FuseFS
+class HelloFS < Crystalfuse::FS
   CONTENT = "Hello from Crystal!\n"
 
   def getattr(path : String) : Crystalfuse::FileAttr | Int32

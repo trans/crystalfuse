@@ -1,5 +1,5 @@
 module Crystalfuse
-  # Crystal-friendly filesystem statistics, returned from `FuseFS#statfs`. The
+  # Crystal-friendly filesystem statistics, returned from `FileSystem#statfs`. The
   # C shim marshals these into a `struct statvfs` (it owns the layout, which
   # differs across libc versions), so Crystal never touches that struct.
   struct StatVFS

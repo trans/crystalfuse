@@ -1,4 +1,4 @@
-# fuse_fs.cr
+# file_system.cr
 require "./fuse_wrap"
 require "./file_attr"
 
@@ -7,10 +7,17 @@ module Crystalfuse
   # you care about; anything you leave alone returns a sensible default
   # (`-ENOENT` for lookups, `-ENOSYS` for write operations on a read-only fs).
   #
-  # Operation methods return either a meaningful value (e.g. `FileAttr`,
-  # `Array(String)`, `Bytes`) or a negative `Errno` value to signal failure,
+  # Reference it as `Crystalfuse::FileSystem`, or via the short alias
+  # `Crystalfuse::FS`.
+  #
+  # Most operations come in two flavors: an ergonomic default that returns a
+  # Crystal value (`FileAttr`, `Array(String)`, `Bytes`, …) and, where it
+  # matters, a lower-level "escape hatch" overload that hands you the raw
+  # buffer/pointer for zero-copy or full control. Override whichever you need;
+  # the escape-hatch forms delegate to the friendly ones by default. Any
+  # operation can also return a negative `Errno` value to signal failure,
   # e.g. `-Errno::ENOENT.value`.
-  abstract class FuseFS
+  abstract class FileSystem
     # Called once when the filesystem is mounted, before any other operation.
     def init : Nil
     end
@@ -86,6 +93,26 @@ module Crystalfuse
     # Same as `read` but with the `FileInfo` (file handle set in `open`).
     def read(path : String, size : Int32, offset : Int64, fi : FileInfo) : Bytes | Int32
       read(path, size, offset)
+    end
+
+    # Buffer-filling escape hatch: write up to `buffer.size` bytes directly into
+    # *buffer* (the kernel's own read buffer) starting at *offset*, and return
+    # the number of bytes written, or a negative errno.
+    #
+    # This avoids the allocate-and-copy of the `Bytes`-returning form, which is
+    # worth it for filesystems streaming large files. Override this *or* the
+    # `Bytes` form — by default this one calls the `Bytes` form and copies its
+    # result into *buffer*.
+    def read(path : String, buffer : Bytes, offset : Int64, fi : FileInfo) : Int32
+      result = read(path, buffer.size, offset, fi)
+      case result
+      when Bytes
+        n = Math.min(result.size, buffer.size)
+        buffer.copy_from(result.to_unsafe, n)
+        n
+      else
+        result.as(Int32)
+      end
     end
 
     # Write *data* to *path* at *offset*. Return the number of bytes written.
@@ -260,4 +287,7 @@ module Crystalfuse
       Crystalfuse.mount(self, args)
     end
   end
+
+  # Short alias for `FileSystem` — `class MyFS < Crystalfuse::FS`.
+  alias FS = FileSystem
 end

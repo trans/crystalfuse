@@ -1,6 +1,6 @@
 module Crystalfuse
   # A Crystal-friendly description of a file's attributes. Returned from
-  # `FuseFS#getattr`; `#to_c` marshals it into a `struct stat` for libfuse.
+  # `FileSystem#getattr`; `#to_c` marshals it into a `struct stat` for libfuse.
   struct FileAttr
     # Ownership defaults to the process that mounted the filesystem (resolved
     # once), so files show up owned by the mounting user rather than root.

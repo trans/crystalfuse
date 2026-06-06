@@ -1,9 +1,9 @@
 # fuse_bridge.cr
-require "./fuse_fs"
+require "./file_system"
 require "./fuse_wrap"
 
 module Crystalfuse
-  # Bridges the raw C callbacks from the libfuse shim to the active `FuseFS`
+  # Bridges the raw C callbacks from the libfuse shim to the active `FileSystem`
   # instance. Each `_op` method translates C pointers/ints into Crystal types,
   # dispatches to the instance, and marshals the result back for libfuse.
   module FuseBridge
@@ -12,13 +12,13 @@ module Crystalfuse
     UTIME_NOW  = (1_i64 << 30) - 1
     UTIME_OMIT = (1_i64 << 30) - 2
 
-    @@instance : Crystalfuse::FuseFS? = nil
+    @@instance : Crystalfuse::FileSystem? = nil
 
-    def self.set_instance(fs : Crystalfuse::FuseFS)
+    def self.set_instance(fs : Crystalfuse::FileSystem)
       @@instance = fs
     end
 
-    def self.instance : Crystalfuse::FuseFS
+    def self.instance : Crystalfuse::FileSystem
       @@instance.not_nil!
     end
 
@@ -103,15 +103,9 @@ module Crystalfuse
     end
 
     def self._read(path_ptr, buf, size, offset, fi) : Int32
-      result = instance.read(String.new(path_ptr), size.to_i32, offset, FileInfo.new(fi))
-      case result
-      when Bytes
-        n = Math.min(result.size, size.to_i32)
-        Slice.new(buf, n).copy_from(result.to_unsafe, n)
-        n
-      else
-        result.as(Int32)
-      end
+      # Hand the kernel's own buffer to the filesystem (buffer-filling form);
+      # the default impl falls back to the Bytes-returning form with one copy.
+      instance.read(String.new(path_ptr), Slice.new(buf, size.to_i32), offset, FileInfo.new(fi))
     end
 
     def self._write(path_ptr, buf, size, offset, fi) : Int32

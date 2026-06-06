@@ -1,8 +1,8 @@
 require "./spec_helper"
 
-# A tiny read-only filesystem used to exercise the FuseFS API and the bridge
+# A tiny read-only filesystem used to exercise the FileSystem API and the bridge
 # without actually mounting anything.
-private class TestFS < Crystalfuse::FuseFS
+private class TestFS < Crystalfuse::FS
   CONTENT = "hello\n"
 
   def getattr(path : String) : Crystalfuse::FileAttr | Int32
@@ -25,14 +25,14 @@ private class TestFS < Crystalfuse::FuseFS
 end
 
 # A filesystem whose operations blow up, to exercise the bridge's guard.
-private class RaisingFS < Crystalfuse::FuseFS
+private class RaisingFS < Crystalfuse::FS
   def getattr(path : String) : Crystalfuse::FileAttr | Int32
     raise "boom"
   end
 end
 
 # Records what it sees through the FileInfo, to verify fh/flag plumbing.
-private class HandleEchoFS < Crystalfuse::FuseFS
+private class HandleEchoFS < Crystalfuse::FS
   property seen_fh : UInt64 = 0_u64
   property seen_writable : Bool = false
 
@@ -48,8 +48,25 @@ private class HandleEchoFS < Crystalfuse::FuseFS
   end
 end
 
+# Two filesystems for the read paths: one uses the friendly Bytes-returning
+# form, the other fills the kernel buffer directly (the zero-copy escape hatch).
+private class BytesReadFS < Crystalfuse::FS
+  def read(path : String, size : Int32, offset : Int64) : Bytes | Int32
+    "abcdef".to_slice[offset.to_i32, Math.min(size, 6 - offset.to_i32)]
+  end
+end
+
+private class BufferReadFS < Crystalfuse::FS
+  def read(path : String, buffer : Bytes, offset : Int64, fi : Crystalfuse::FileInfo) : Int32
+    src = "ABCDEF".to_slice
+    n = Math.min(buffer.size, src.size - offset.to_i32)
+    buffer.copy_from(src.to_unsafe + offset.to_i32, n)
+    n
+  end
+end
+
 # Records the lifecycle callbacks.
-private class LifecycleFS < Crystalfuse::FuseFS
+private class LifecycleFS < Crystalfuse::FS
   property inited = false
   property destroyed = false
 
@@ -175,6 +192,26 @@ describe "file handles" do
   end
 end
 
+describe "read paths" do
+  it "fills the kernel buffer via the friendly Bytes-returning form" do
+    Crystalfuse::FuseBridge.set_instance(BytesReadFS.new)
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    buf = Bytes.new(6)
+    n = Crystalfuse::FuseBridge._read("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(6), 0_i64, pointerof(cfi))
+    n.should eq(6)
+    String.new(buf).should eq("abcdef")
+  end
+
+  it "fills the kernel buffer directly via the buffer-filling escape hatch" do
+    Crystalfuse::FuseBridge.set_instance(BufferReadFS.new)
+    cfi = Crystalfuse::FuseWrap::FileInfo.new
+    buf = Bytes.new(3)
+    n = Crystalfuse::FuseBridge._read("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(3), 2_i64, pointerof(cfi))
+    n.should eq(3)
+    String.new(buf).should eq("CDE") # offset 2 into "ABCDEF"
+  end
+end
+
 describe "lifecycle hooks" do
   it "dispatches init and destroy" do
     fs = LifecycleFS.new
@@ -187,7 +224,7 @@ describe "lifecycle hooks" do
 end
 
 # In-memory xattrs plus recorders for mknod/link, to exercise those bridges.
-private class XattrFS < Crystalfuse::FuseFS
+private class XattrFS < Crystalfuse::FS
   @attrs = {} of String => Bytes
   property last_mknod : Tuple(String, Int32, UInt64)? = nil
   property linked : Tuple(String, String)? = nil
@@ -273,7 +310,7 @@ describe "mknod / link bridge" do
 end
 
 # Exercises the advanced ops, including an Int64 return and a pointer out-param.
-private class OpsFS < Crystalfuse::FuseFS
+private class OpsFS < Crystalfuse::FS
   def lseek(path : String, offset : Int64, whence : Int32, fi : Crystalfuse::FileInfo) : Int64
     offset + 100
   end

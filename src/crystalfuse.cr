@@ -1,7 +1,7 @@
 # crystalfuse.cr
 #
 # Crystal bindings to libFUSE (FUSE 3.x), via a thin C shim that owns the
-# `struct fuse_operations` table. Subclass `Crystalfuse::FuseFS`, override the
+# `struct fuse_operations` table. Subclass `Crystalfuse::FS`, override the
 # operations you need, and call `#mount`.
 require "./crystalfuse/version"
 require "./crystalfuse/libc"
@@ -9,14 +9,14 @@ require "./crystalfuse/file_attr"
 require "./crystalfuse/statvfs"
 require "./crystalfuse/fuse_wrap"
 require "./crystalfuse/file_info"
-require "./crystalfuse/fuse_fs"
+require "./crystalfuse/file_system"
 require "./crystalfuse/fuse_bridge"
 
 module Crystalfuse
   # Mount *fs*, passing *args* (an argv-style array, e.g.
   # `["myfs", "-f", "/mnt/point"]`) straight through to libfuse. Blocks until
   # the filesystem is unmounted. Returns libfuse's exit status.
-  def self.mount(fs : FuseFS, args : Array(String)) : Int32
+  def self.mount(fs : FileSystem, args : Array(String)) : Int32
     FuseBridge.set_instance(fs)
     FuseBridge.register_callbacks
 

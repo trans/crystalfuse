@@ -30,14 +30,15 @@ The C shim is built with `make` (it produces the static archive
 
 ## Usage
 
-Subclass `Crystalfuse::FuseFS`, override the operations you need, and call
-`#mount`. Anything you don't override returns a sensible default (`-ENOENT`
-for lookups, `-ENOSYS` for write operations).
+Subclass `Crystalfuse::FileSystem` (or its short alias `Crystalfuse::FS`),
+override the operations you need, and call `#mount`. Anything you don't override
+returns a sensible default (`-ENOENT` for lookups, `-ENOSYS` for write
+operations).
 
 ```crystal
 require "crystalfuse"
 
-class HelloFS < Crystalfuse::FuseFS
+class HelloFS < Crystalfuse::FS
   CONTENT = "Hello from Crystal!\n"
 
   def getattr(path : String) : Crystalfuse::FileAttr | Int32
@@ -102,7 +103,7 @@ value as `Bytes` (or `-Errno::ENODATA.value`), `listxattr` returns the names as
 an `Array(String)` — and the binding handles libfuse's two-call size-probe
 protocol for you. `eg/memfs` implements them; try it with `setfattr`/`getfattr`.
 
-Each `FuseFS` operation returns either a meaningful Crystal value
+Each `FileSystem` operation returns either a meaningful Crystal value
 (`FileAttr`, `Array(String)`, `Bytes`, `String`, …) or a negative errno value
 to signal failure, e.g. `-Errno::ENOENT.value`. An exception that escapes one
 of your operation methods is caught, logged to stderr, and reported to the

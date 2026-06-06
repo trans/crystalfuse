@@ -12,7 +12,7 @@
 require "../../src/crystalfuse"
 require "../../src/crystalfuse/handle_table" # optional helper, opt-in
 
-class HandleFS < Crystalfuse::FuseFS
+class HandleFS < Crystalfuse::FS
   FILES = {
     "/hello.txt" => "Hello from an open file handle!\n",
     "/world.txt" => "A second file, served the same way.\n",

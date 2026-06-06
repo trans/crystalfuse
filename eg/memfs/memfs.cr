@@ -20,7 +20,7 @@
 # See eg/hello for a filesystem that runs with the full worker pool.
 require "../../src/crystalfuse"
 
-class MemFS < Crystalfuse::FuseFS
+class MemFS < Crystalfuse::FS
   # A node in the tree: either a directory or a regular file.
   abstract class Node
     property perms : Int32
