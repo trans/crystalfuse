@@ -101,7 +101,8 @@ module Crystalfuse
     fun fusewrap_fill_statvfs(st : Void*,
                               bsize : LibC::ULong, frsize : LibC::ULong,
                               blocks : LibC::ULong, bfree : LibC::ULong, bavail : LibC::ULong,
-                              files : LibC::ULong, ffree : LibC::ULong, namemax : LibC::ULong) : Void
+                              files : LibC::ULong, ffree : LibC::ULong, favail : LibC::ULong,
+                              namemax : LibC::ULong, flag : LibC::ULong) : Void
 
     # Mirrors struct fuse_file_info from fuse3. We only ever read a few fields
     # (notably `flags` and `fh`); the bitfield is collapsed into one word.

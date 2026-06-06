@@ -106,7 +106,8 @@ void fusewrap_register_bmap(bmap_cb_t cb);
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
-    unsigned long files, unsigned long ffree, unsigned long namemax);
+    unsigned long files, unsigned long ffree, unsigned long favail,
+    unsigned long namemax, unsigned long flag);
 
 // Register the calling thread with the GC (see fuse_wrapper.c). Safe to call
 // repeatedly; only the first call per thread does work.

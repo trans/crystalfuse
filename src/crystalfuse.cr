@@ -9,6 +9,7 @@ require "./crystalfuse/file_attr"
 require "./crystalfuse/statvfs"
 require "./crystalfuse/fuse_wrap"
 require "./crystalfuse/file_info"
+require "./crystalfuse/dir_filler"
 require "./crystalfuse/file_system"
 require "./crystalfuse/fuse_bridge"
 

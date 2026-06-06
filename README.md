@@ -109,6 +109,27 @@ to signal failure, e.g. `-Errno::ENOENT.value`. An exception that escapes one
 of your operation methods is caught, logged to stderr, and reported to the
 kernel as `-EIO` rather than crashing the mount.
 
+## Escape hatches
+
+The friendly return-a-value forms cover the common case, but several operations
+also offer a lower-level form for zero-copy or full control. Override whichever
+fits — the raw forms delegate to the friendly ones by default, so a simple
+filesystem can ignore them:
+
+- **`read(path, buffer : Bytes, offset, fi)`** — fill the kernel's own read
+  buffer directly and return the count, skipping the allocate-and-copy of the
+  `Bytes`-returning form. Worth it for streaming large files.
+- **`getattr(path, stat : Pointer(LibC::Stat))`** — fill the `struct stat`
+  directly for a field `FileAttr` doesn't model.
+- **`readdir(path, filler : DirFiller, fi)`** — stream entries with
+  `filler << name` instead of materializing an `Array(String)`, for very large
+  directories.
+
+For filesystem statistics, `StatVFS` is itself the full surface — it models
+every `statvfs` field (`favail`, `flag` for `ST_RDONLY`/`ST_NOSUID`, …). There's
+deliberately no raw `LibC::Statvfs` form: that struct's layout varies by libc
+version, so the C shim owns it and you only ever touch the safe `StatVFS`.
+
 ## File handles
 
 `open`, `create`, `read`, `write`, `release` and `flush` each have a second

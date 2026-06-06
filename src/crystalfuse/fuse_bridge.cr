@@ -67,27 +67,15 @@ module Crystalfuse
     end
 
     def self._getattr(path_ptr, stat_ptr, fi) : Int32
-      result = instance.getattr(String.new(path_ptr))
-      case result
-      when FileAttr
-        result.to_c(stat_ptr)
-        0
-      else
-        result.as(Int32)
-      end
+      # Call the raw form; its default marshals a FileAttr, but a fs can
+      # override it to fill the struct stat directly.
+      instance.getattr(String.new(path_ptr), stat_ptr)
     end
 
     def self._readdir(path_ptr, buf, filler, offset, fi, flags) : Int32
-      result = instance.readdir(String.new(path_ptr), FileInfo.new(fi))
-      case result
-      when Array(String)
-        result.each do |entry|
-          filler.call(buf, entry.to_unsafe, Pointer(LibC::Stat).null, 0_i64, 0_u32)
-        end
-        0
-      else
-        result.as(Int32)
-      end
+      # Call the streaming form; its default materializes the Array(String)
+      # form, but a fs can override it to stream entries one at a time.
+      instance.readdir(String.new(path_ptr), DirFiller.new(buf, filler), FileInfo.new(fi))
     end
 
     def self._open(path_ptr, fi) : Int32
@@ -188,7 +176,8 @@ module Crystalfuse
         FuseWrap.fusewrap_fill_statvfs(st_ptr,
           result.bsize, result.frsize,
           result.blocks, result.bfree, result.bavail,
-          result.files, result.ffree, result.namemax)
+          result.files, result.ffree, result.favail,
+          result.namemax, result.flag)
         0
       else
         result.as(Int32)

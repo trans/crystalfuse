@@ -31,6 +31,21 @@ private class RaisingFS < Crystalfuse::FS
   end
 end
 
+# Overrides the raw escape-hatch forms of getattr and readdir directly.
+private class RawFS < Crystalfuse::FS
+  def getattr(path : String, stat : Pointer(LibC::Stat)) : Int32
+    stat.value.st_mode = (LibC::S_IFREG | 0o600).to_u32
+    stat.value.st_size = 777_i64
+    0
+  end
+
+  def readdir(path : String, filler : Crystalfuse::DirFiller, fi : Crystalfuse::FileInfo) : Int32
+    filler << "." << ".."
+    filler << "streamed"
+    0
+  end
+end
+
 # Records what it sees through the FileInfo, to verify fh/flag plumbing.
 private class HandleEchoFS < Crystalfuse::FS
   property seen_fh : UInt64 = 0_u64
@@ -209,6 +224,42 @@ describe "read paths" do
     n = Crystalfuse::FuseBridge._read("/f".to_unsafe, buf.to_unsafe, LibC::SizeT.new(3), 2_i64, pointerof(cfi))
     n.should eq(3)
     String.new(buf).should eq("CDE") # offset 2 into "ABCDEF"
+  end
+end
+
+describe "raw escape hatches" do
+  it "fills the struct stat directly via the raw getattr form" do
+    Crystalfuse::FuseBridge.set_instance(RawFS.new)
+    stat = LibC::Stat.new
+    rc = Crystalfuse::FuseBridge._getattr(
+      "/f".to_unsafe, pointerof(stat), Pointer(Crystalfuse::FuseWrap::FileInfo).null)
+    rc.should eq(0)
+    stat.st_size.should eq(777)
+    (stat.st_mode.to_i32 & 0o777).should eq(0o600)
+  end
+
+  it "streams entries via the DirFiller readdir form" do
+    Crystalfuse::FuseBridge.set_instance(RawFS.new)
+    seen = [] of String
+    # Collect what the C filler would receive by faking it with a Crystal proc.
+    filler = ->(_b : Void*, name : Pointer(UInt8), _s : Pointer(LibC::Stat), _o : Int64, _f : UInt32) do
+      seen << String.new(name); 0
+    end
+    rc = Crystalfuse::FuseBridge._readdir(
+      "/".to_unsafe, Pointer(Void).null, filler, 0_i64,
+      Pointer(Crystalfuse::FuseWrap::FileInfo).null, 0_u32)
+    rc.should eq(0)
+    seen.should eq([".", "..", "streamed"])
+  end
+end
+
+describe Crystalfuse::StatVFS do
+  it "carries the rounded-out fields (favail, flag) with sane defaults" do
+    st = Crystalfuse::StatVFS.new(blocks: 100, flag: 1_u64)
+    st.blocks.should eq(100)
+    st.flag.should eq(1)
+    st.favail.should eq(0) # default
+    st.namemax.should eq(255)
   end
 end
 

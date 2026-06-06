@@ -31,6 +31,21 @@ module Crystalfuse
       -Errno::ENOENT.value
     end
 
+    # Raw escape hatch: fill the kernel's `struct stat` (*stat*) directly and
+    # return 0, or a negative errno. Use this when you need a field `FileAttr`
+    # doesn't model. By default it calls the friendly `FileAttr`-returning form
+    # and marshals the result, so override one or the other.
+    def getattr(path : String, stat : Pointer(LibC::Stat)) : Int32
+      result = getattr(path)
+      case result
+      when FileAttr
+        result.to_c(stat)
+        0
+      else
+        result.as(Int32)
+      end
+    end
+
     # Entries contained in the directory at *path*. Include "." and "..".
     def readdir(path : String) : Array(String) | Int32
       -Errno::ENOENT.value
@@ -39,6 +54,22 @@ module Crystalfuse
     # Same as `readdir` but with the `FileInfo` (the handle set in `opendir`).
     def readdir(path : String, fi : FileInfo) : Array(String) | Int32
       readdir(path)
+    end
+
+    # Streaming escape hatch: push entries into *filler* (`filler << name`) as
+    # you discover them and return 0, or a negative errno. Avoids materializing
+    # the whole listing into an `Array(String)` — worth it for directories with
+    # very many entries. By default it calls the `Array(String)`-returning form
+    # and streams its result, so override one or the other.
+    def readdir(path : String, filler : DirFiller, fi : FileInfo) : Int32
+      result = readdir(path, fi)
+      case result
+      when Array(String)
+        result.each { |name| filler << name }
+        0
+      else
+        result.as(Int32)
+      end
     end
 
     # Called when a directory is opened. Set `fi.fh` for a directory handle.

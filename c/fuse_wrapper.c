@@ -351,7 +351,8 @@ static int wrapper_bmap(const char *path, size_t blocksize, uint64_t *idx) {
 void fusewrap_fill_statvfs(struct statvfs *st,
     unsigned long bsize, unsigned long frsize,
     unsigned long blocks, unsigned long bfree, unsigned long bavail,
-    unsigned long files, unsigned long ffree, unsigned long namemax) {
+    unsigned long files, unsigned long ffree, unsigned long favail,
+    unsigned long namemax, unsigned long flag) {
     st->f_bsize   = bsize;
     st->f_frsize  = frsize;
     st->f_blocks  = blocks;
@@ -359,8 +360,9 @@ void fusewrap_fill_statvfs(struct statvfs *st,
     st->f_bavail  = bavail;
     st->f_files   = files;
     st->f_ffree   = ffree;
-    st->f_favail  = bavail;
+    st->f_favail  = favail;
     st->f_namemax = namemax;
+    st->f_flag    = flag;
 }
 
 static struct fuse_operations wrapper_ops = {
