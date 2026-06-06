@@ -1,5 +1,7 @@
 # crystalfuse
 
+[![CI](https://github.com/trans/crystalfuse/actions/workflows/ci.yml/badge.svg)](https://github.com/trans/crystalfuse/actions/workflows/ci.yml)
+
 Crystal bindings to [libFUSE](https://github.com/libfuse/libfuse) (FUSE 3.x),
 letting you write a userspace filesystem in Crystal.
 

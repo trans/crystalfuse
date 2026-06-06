@@ -297,8 +297,8 @@ module Crystalfuse
     # `guard`. The procs are closure-free (they reference only module methods),
     # so they convert to plain C function pointers.
     def self.register_callbacks
-      FuseWrap.fusewrap_register_init ->{ _init }
-      FuseWrap.fusewrap_register_destroy ->{ _destroy }
+      FuseWrap.fusewrap_register_init -> { _init }
+      FuseWrap.fusewrap_register_destroy -> { _destroy }
       FuseWrap.fusewrap_register_getattr ->(p : Pointer(UInt8), s : Pointer(LibC::Stat), fi : Pointer(FuseWrap::FileInfo)) { guard { _getattr(p, s, fi) } }
       FuseWrap.fusewrap_register_readdir ->(p : Pointer(UInt8), b : Void*, f : FuseWrap::FillDir, o : Int64, fi : Pointer(FuseWrap::FileInfo), fl : UInt32) { guard { _readdir(p, b, f, o, fi, fl) } }
       FuseWrap.fusewrap_register_open ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _open(p, fi) } }

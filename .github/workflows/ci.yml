@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: crystallang/crystal:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The C shim links against libfuse3; pull in its headers + pkg-config.
+      - name: Install libfuse3
+        run: |
+          apt-get update
+          apt-get install -y libfuse3-dev pkg-config
+
+      # Only our code; legacy/ holds old reference code that isn't maintained.
+      - name: Check formatting
+        run: crystal tool format --check src spec eg
+
+      # Builds the C shim and compiles the hello example.
+      - name: Build (make)
+        run: make
+
+      # Specs are unit tests over the bridge — they don't mount, so no
+      # privileged /dev/fuse access is needed here.
+      - name: Run specs
+        run: crystal spec
+
+      # Compile every example to catch API regressions (they aren't mounted).
+      - name: Compile examples
+        run: |
+          for eg in eg/*/*.cr; do
+            echo "compiling $eg"
+            crystal build "$eg" -o /tmp/eg_bin --no-codegen
+          done
