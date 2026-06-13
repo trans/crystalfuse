@@ -1,9 +1,9 @@
 require "./spec_helper"
 require "../src/crystalfuse/handle_table" # opt-in helper, not loaded by default
 
-describe Crystalfuse::HandleTable do
+describe Fuse::HandleTable do
   it "mints unique handles, fetches, and frees them" do
-    t = Crystalfuse::HandleTable(String).new
+    t = Fuse::HandleTable(String).new
     a = t.add("alpha")
     b = t.add("beta")
 

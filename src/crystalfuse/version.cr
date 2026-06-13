@@ -1,3 +1,3 @@
-module Crystalfuse
-  VERSION = "0.2.0"
+module Fuse
+  VERSION = "0.3.0"
 end

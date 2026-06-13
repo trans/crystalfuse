@@ -1,6 +1,6 @@
 require "./fuse_wrap"
 
-module Crystalfuse
+module Fuse
   # Wraps libfuse's `fuse_file_info`, handed to the open-file lifecycle
   # operations (`open`, `create`, `read`, `write`, `flush`, `release`).
   #
@@ -8,13 +8,13 @@ module Crystalfuse
   # an arbitrary `UInt64` it owns (e.g. an index into its own open-file table).
   # Set `fh` in `open`/`create`; the kernel hands the same value back on every
   # subsequent operation for that open file. See the optional
-  # `Crystalfuse::HandleTable` (`require "crystalfuse/handle_table"`) for a
+  # `Fuse::HandleTable` (`require "crystalfuse/handle_table"`) for a
   # ready-made registry.
   struct FileInfo
     # libc's O_ACCMODE isn't exposed by Crystal's stdlib; it's the low 2 bits.
     O_ACCMODE = 0o3
 
-    def initialize(@ptr : Pointer(FuseWrap::FileInfo))
+    def initialize(@ptr : Pointer(Wrap::FileInfo))
     end
 
     # Raw `open(2)` flags (`O_RDONLY`, `O_WRONLY`, `O_RDWR`, `O_APPEND`, …).

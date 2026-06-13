@@ -1,4 +1,4 @@
-module Crystalfuse
+module Fuse
   # A Crystal-friendly description of a file's attributes. Returned from
   # `FileSystem#getattr`; `#to_c` marshals it into a `struct stat` for libfuse.
   struct FileAttr

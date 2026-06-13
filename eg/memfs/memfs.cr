@@ -20,12 +20,12 @@
 # See eg/hello for a filesystem that runs with the full worker pool.
 require "../../src/crystalfuse"
 
-class MemFS < Crystalfuse::FS
+class MemFS < Fuse::FS
   # A node in the tree: either a directory or a regular file.
   abstract class Node
     property perms : Int32
-    property uid : UInt32 = Crystalfuse::FileAttr::DEFAULT_UID
-    property gid : UInt32 = Crystalfuse::FileAttr::DEFAULT_GID
+    property uid : UInt32 = Fuse::FileAttr::DEFAULT_UID
+    property gid : UInt32 = Fuse::FileAttr::DEFAULT_GID
     property mtime : Time
     property xattrs = {} of String => Bytes
 
@@ -77,12 +77,12 @@ class MemFS < Crystalfuse::FS
     @nodes["/"] = DirNode.new(0o755)
   end
 
-  def getattr(path : String) : Crystalfuse::FileAttr | Int32
+  def getattr(path : String) : Fuse::FileAttr | Int32
     node = @nodes[path]?
     return -Errno::ENOENT.value unless node
     case node
-    when DirNode  then Crystalfuse::FileAttr.dir(mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
-    when FileNode then Crystalfuse::FileAttr.file(size: node.size, mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
+    when DirNode  then Fuse::FileAttr.dir(mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
+    when FileNode then Fuse::FileAttr.file(size: node.size, mode: node.perms, time: node.mtime, uid: node.uid, gid: node.gid)
     else               -Errno::EIO.value
     end
   end
@@ -230,8 +230,8 @@ class MemFS < Crystalfuse::FS
     0
   end
 
-  def statfs(path : String) : Crystalfuse::StatVFS | Int32
-    Crystalfuse::StatVFS.new(
+  def statfs(path : String) : Fuse::StatVFS | Int32
+    Fuse::StatVFS.new(
       bsize: 4096, frsize: 4096,
       blocks: 262144, bfree: 262144, bavail: 262144, # pretend we have 1 GiB
       files: 100000, ffree: (100000 - @nodes.size).to_u64,

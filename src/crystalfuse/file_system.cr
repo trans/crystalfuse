@@ -2,13 +2,13 @@
 require "./fuse_wrap"
 require "./file_attr"
 
-module Crystalfuse
+module Fuse
   # Base class for a FUSE filesystem. Subclass it and override the operations
   # you care about; anything you leave alone returns a sensible default
   # (`-ENOENT` for lookups, `-ENOSYS` for write operations on a read-only fs).
   #
-  # Reference it as `Crystalfuse::FileSystem`, or via the short alias
-  # `Crystalfuse::FS`.
+  # Reference it as `Fuse::FileSystem`, or via the short alias
+  # `Fuse::FS`.
   #
   # Most operations come in two flavors: an ergonomic default that returns a
   # Crystal value (`FileAttr`, `Array(String)`, `Bytes`, …) and, where it
@@ -315,10 +315,10 @@ module Crystalfuse
     # Mount this filesystem, handing *args* (argv-style) straight to libfuse.
     # Don't override this.
     def mount(args : Array(String)) : Int32
-      Crystalfuse.mount(self, args)
+      Fuse.mount(self, args)
     end
   end
 
-  # Short alias for `FileSystem` — `class MyFS < Crystalfuse::FS`.
+  # Short alias for `FileSystem` — `class MyFS < Fuse::FS`.
   alias FS = FileSystem
 end

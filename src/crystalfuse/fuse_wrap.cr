@@ -6,9 +6,9 @@
 # linked in alongside libfuse3.
 require "./libc"
 
-module Crystalfuse
+module Fuse
   @[Link(ldflags: "#{__DIR__}/../../c/libfusewrap.a -lfuse3 -lpthread")]
-  lib FuseWrap
+  lib Wrap
     # The fuse_fill_dir_t callback handed to readdir.
     alias FillDir = (Void*, Pointer(UInt8), Pointer(LibC::Stat), Int64, UInt32) -> Int32
 

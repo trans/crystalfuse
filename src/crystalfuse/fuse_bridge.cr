@@ -2,23 +2,23 @@
 require "./file_system"
 require "./fuse_wrap"
 
-module Crystalfuse
+module Fuse
   # Bridges the raw C callbacks from the libfuse shim to the active `FileSystem`
   # instance. Each `_op` method translates C pointers/ints into Crystal types,
   # dispatches to the instance, and marshals the result back for libfuse.
-  module FuseBridge
+  module Bridge
     # FUSE encodes these in a timespec's tv_nsec to mean "set to now" and
     # "leave unchanged" respectively (see utimensat(2)).
     UTIME_NOW  = (1_i64 << 30) - 1
     UTIME_OMIT = (1_i64 << 30) - 2
 
-    @@instance : Crystalfuse::FileSystem? = nil
+    @@instance : Fuse::FileSystem? = nil
 
-    def self.set_instance(fs : Crystalfuse::FileSystem)
+    def self.set_instance(fs : Fuse::FileSystem)
       @@instance = fs
     end
 
-    def self.instance : Crystalfuse::FileSystem
+    def self.instance : Fuse::FileSystem
       @@instance.not_nil!
     end
 
@@ -38,7 +38,7 @@ module Crystalfuse
     # C and abort the whole process (or wedge the mount). `yield` is inlined, so
     # the enclosing proc stays a plain C function pointer.
     def self.guard(& : -> Int32) : Int32
-      FuseWrap.fusewrap_register_current_thread # make this worker thread GC-safe
+      Wrap.fusewrap_register_current_thread # make this worker thread GC-safe
       yield
     rescue ex
       report(ex)
@@ -47,7 +47,7 @@ module Crystalfuse
 
     # Like `guard`, for operations that return an off_t/ssize_t (Int64).
     def self.guard64(& : -> Int64) : Int64
-      FuseWrap.fusewrap_register_current_thread
+      Wrap.fusewrap_register_current_thread
       yield
     rescue ex
       report(ex)
@@ -173,7 +173,7 @@ module Crystalfuse
       result = instance.statfs(String.new(path_ptr))
       case result
       when StatVFS
-        FuseWrap.fusewrap_fill_statvfs(st_ptr,
+        Wrap.fusewrap_fill_statvfs(st_ptr,
           result.bsize, result.frsize,
           result.blocks, result.bfree, result.bavail,
           result.files, result.ffree, result.favail,
@@ -297,46 +297,46 @@ module Crystalfuse
     # `guard`. The procs are closure-free (they reference only module methods),
     # so they convert to plain C function pointers.
     def self.register_callbacks
-      FuseWrap.fusewrap_register_init -> { _init }
-      FuseWrap.fusewrap_register_destroy -> { _destroy }
-      FuseWrap.fusewrap_register_getattr ->(p : Pointer(UInt8), s : Pointer(LibC::Stat), fi : Pointer(FuseWrap::FileInfo)) { guard { _getattr(p, s, fi) } }
-      FuseWrap.fusewrap_register_readdir ->(p : Pointer(UInt8), b : Void*, f : FuseWrap::FillDir, o : Int64, fi : Pointer(FuseWrap::FileInfo), fl : UInt32) { guard { _readdir(p, b, f, o, fi, fl) } }
-      FuseWrap.fusewrap_register_open ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _open(p, fi) } }
-      FuseWrap.fusewrap_register_release ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _release(p, fi) } }
-      FuseWrap.fusewrap_register_flush ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _flush(p, fi) } }
-      FuseWrap.fusewrap_register_read ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _read(p, b, sz, o, fi) } }
-      FuseWrap.fusewrap_register_write ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _write(p, b, sz, o, fi) } }
-      FuseWrap.fusewrap_register_create ->(p : Pointer(UInt8), m : LibC::ModeT, fi : Pointer(FuseWrap::FileInfo)) { guard { _create(p, m, fi) } }
-      FuseWrap.fusewrap_register_truncate ->(p : Pointer(UInt8), sz : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _truncate(p, sz, fi) } }
-      FuseWrap.fusewrap_register_unlink ->(p : Pointer(UInt8)) { guard { _unlink(p) } }
-      FuseWrap.fusewrap_register_mkdir ->(p : Pointer(UInt8), m : LibC::ModeT) { guard { _mkdir(p, m) } }
-      FuseWrap.fusewrap_register_rmdir ->(p : Pointer(UInt8)) { guard { _rmdir(p) } }
-      FuseWrap.fusewrap_register_rename ->(f : Pointer(UInt8), t : Pointer(UInt8), fl : UInt32) { guard { _rename(f, t, fl) } }
-      FuseWrap.fusewrap_register_chmod ->(p : Pointer(UInt8), m : LibC::ModeT, fi : Pointer(FuseWrap::FileInfo)) { guard { _chmod(p, m, fi) } }
-      FuseWrap.fusewrap_register_chown ->(p : Pointer(UInt8), u : LibC::UidT, g : LibC::GidT, fi : Pointer(FuseWrap::FileInfo)) { guard { _chown(p, u, g, fi) } }
-      FuseWrap.fusewrap_register_readlink ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT) { guard { _readlink(p, b, sz) } }
-      FuseWrap.fusewrap_register_symlink ->(t : Pointer(UInt8), l : Pointer(UInt8)) { guard { _symlink(t, l) } }
-      FuseWrap.fusewrap_register_utimens ->(p : Pointer(UInt8), tv : Pointer(LibC::Timespec), fi : Pointer(FuseWrap::FileInfo)) { guard { _utimens(p, tv, fi) } }
-      FuseWrap.fusewrap_register_statfs ->(p : Pointer(UInt8), st : Void*) { guard { _statfs(p, st) } }
-      FuseWrap.fusewrap_register_access ->(p : Pointer(UInt8), m : Int32) { guard { _access(p, m) } }
-      FuseWrap.fusewrap_register_fsync ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard { _fsync(p, ds, fi) } }
-      FuseWrap.fusewrap_register_fsyncdir ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard { _fsyncdir(p, ds, fi) } }
-      FuseWrap.fusewrap_register_opendir ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _opendir(p, fi) } }
-      FuseWrap.fusewrap_register_releasedir ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo)) { guard { _releasedir(p, fi) } }
-      FuseWrap.fusewrap_register_mknod ->(p : Pointer(UInt8), m : LibC::ModeT, d : LibC::DevT) { guard { _mknod(p, m, d) } }
-      FuseWrap.fusewrap_register_link ->(t : Pointer(UInt8), l : Pointer(UInt8)) { guard { _link(t, l) } }
-      FuseWrap.fusewrap_register_setxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT, fl : Int32) { guard { _setxattr(p, n, v, sz, fl) } }
-      FuseWrap.fusewrap_register_getxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT) { guard { _getxattr(p, n, v, sz) } }
-      FuseWrap.fusewrap_register_listxattr ->(p : Pointer(UInt8), l : Pointer(UInt8), sz : LibC::SizeT) { guard { _listxattr(p, l, sz) } }
-      FuseWrap.fusewrap_register_removexattr ->(p : Pointer(UInt8), n : Pointer(UInt8)) { guard { _removexattr(p, n) } }
-      FuseWrap.fusewrap_register_lseek ->(p : Pointer(UInt8), o : Int64, w : Int32, fi : Pointer(FuseWrap::FileInfo)) { guard64 { _lseek(p, o, w, fi) } }
-      FuseWrap.fusewrap_register_fallocate ->(p : Pointer(UInt8), m : Int32, o : Int64, l : Int64, fi : Pointer(FuseWrap::FileInfo)) { guard { _fallocate(p, m, o, l, fi) } }
-      FuseWrap.fusewrap_register_copy_file_range ->(pi : Pointer(UInt8), fii : Pointer(FuseWrap::FileInfo), oi : Int64, po : Pointer(UInt8), fio : Pointer(FuseWrap::FileInfo), oo : Int64, sz : LibC::SizeT, fl : Int32) { guard64 { _copy_file_range(pi, fii, oi, po, fio, oo, sz, fl) } }
-      FuseWrap.fusewrap_register_flock ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), op : Int32) { guard { _flock(p, fi, op) } }
-      FuseWrap.fusewrap_register_lock ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), cmd : Int32, lk : Pointer(LibC::Flock)) { guard { _lock(p, fi, cmd, lk) } }
-      FuseWrap.fusewrap_register_ioctl ->(p : Pointer(UInt8), cmd : UInt32, arg : Void*, fi : Pointer(FuseWrap::FileInfo), fl : UInt32, data : Void*) { guard { _ioctl(p, cmd, arg, fi, fl, data) } }
-      FuseWrap.fusewrap_register_poll ->(p : Pointer(UInt8), fi : Pointer(FuseWrap::FileInfo), ph : Void*, rev : Pointer(UInt32)) { guard { _poll(p, fi, ph, rev) } }
-      FuseWrap.fusewrap_register_bmap ->(p : Pointer(UInt8), bs : LibC::SizeT, idx : Pointer(UInt64)) { guard { _bmap(p, bs, idx) } }
+      Wrap.fusewrap_register_init -> { _init }
+      Wrap.fusewrap_register_destroy -> { _destroy }
+      Wrap.fusewrap_register_getattr ->(p : Pointer(UInt8), s : Pointer(LibC::Stat), fi : Pointer(Wrap::FileInfo)) { guard { _getattr(p, s, fi) } }
+      Wrap.fusewrap_register_readdir ->(p : Pointer(UInt8), b : Void*, f : Wrap::FillDir, o : Int64, fi : Pointer(Wrap::FileInfo), fl : UInt32) { guard { _readdir(p, b, f, o, fi, fl) } }
+      Wrap.fusewrap_register_open ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo)) { guard { _open(p, fi) } }
+      Wrap.fusewrap_register_release ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo)) { guard { _release(p, fi) } }
+      Wrap.fusewrap_register_flush ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo)) { guard { _flush(p, fi) } }
+      Wrap.fusewrap_register_read ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(Wrap::FileInfo)) { guard { _read(p, b, sz, o, fi) } }
+      Wrap.fusewrap_register_write ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT, o : Int64, fi : Pointer(Wrap::FileInfo)) { guard { _write(p, b, sz, o, fi) } }
+      Wrap.fusewrap_register_create ->(p : Pointer(UInt8), m : LibC::ModeT, fi : Pointer(Wrap::FileInfo)) { guard { _create(p, m, fi) } }
+      Wrap.fusewrap_register_truncate ->(p : Pointer(UInt8), sz : Int64, fi : Pointer(Wrap::FileInfo)) { guard { _truncate(p, sz, fi) } }
+      Wrap.fusewrap_register_unlink ->(p : Pointer(UInt8)) { guard { _unlink(p) } }
+      Wrap.fusewrap_register_mkdir ->(p : Pointer(UInt8), m : LibC::ModeT) { guard { _mkdir(p, m) } }
+      Wrap.fusewrap_register_rmdir ->(p : Pointer(UInt8)) { guard { _rmdir(p) } }
+      Wrap.fusewrap_register_rename ->(f : Pointer(UInt8), t : Pointer(UInt8), fl : UInt32) { guard { _rename(f, t, fl) } }
+      Wrap.fusewrap_register_chmod ->(p : Pointer(UInt8), m : LibC::ModeT, fi : Pointer(Wrap::FileInfo)) { guard { _chmod(p, m, fi) } }
+      Wrap.fusewrap_register_chown ->(p : Pointer(UInt8), u : LibC::UidT, g : LibC::GidT, fi : Pointer(Wrap::FileInfo)) { guard { _chown(p, u, g, fi) } }
+      Wrap.fusewrap_register_readlink ->(p : Pointer(UInt8), b : Pointer(UInt8), sz : LibC::SizeT) { guard { _readlink(p, b, sz) } }
+      Wrap.fusewrap_register_symlink ->(t : Pointer(UInt8), l : Pointer(UInt8)) { guard { _symlink(t, l) } }
+      Wrap.fusewrap_register_utimens ->(p : Pointer(UInt8), tv : Pointer(LibC::Timespec), fi : Pointer(Wrap::FileInfo)) { guard { _utimens(p, tv, fi) } }
+      Wrap.fusewrap_register_statfs ->(p : Pointer(UInt8), st : Void*) { guard { _statfs(p, st) } }
+      Wrap.fusewrap_register_access ->(p : Pointer(UInt8), m : Int32) { guard { _access(p, m) } }
+      Wrap.fusewrap_register_fsync ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(Wrap::FileInfo)) { guard { _fsync(p, ds, fi) } }
+      Wrap.fusewrap_register_fsyncdir ->(p : Pointer(UInt8), ds : Int32, fi : Pointer(Wrap::FileInfo)) { guard { _fsyncdir(p, ds, fi) } }
+      Wrap.fusewrap_register_opendir ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo)) { guard { _opendir(p, fi) } }
+      Wrap.fusewrap_register_releasedir ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo)) { guard { _releasedir(p, fi) } }
+      Wrap.fusewrap_register_mknod ->(p : Pointer(UInt8), m : LibC::ModeT, d : LibC::DevT) { guard { _mknod(p, m, d) } }
+      Wrap.fusewrap_register_link ->(t : Pointer(UInt8), l : Pointer(UInt8)) { guard { _link(t, l) } }
+      Wrap.fusewrap_register_setxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT, fl : Int32) { guard { _setxattr(p, n, v, sz, fl) } }
+      Wrap.fusewrap_register_getxattr ->(p : Pointer(UInt8), n : Pointer(UInt8), v : Pointer(UInt8), sz : LibC::SizeT) { guard { _getxattr(p, n, v, sz) } }
+      Wrap.fusewrap_register_listxattr ->(p : Pointer(UInt8), l : Pointer(UInt8), sz : LibC::SizeT) { guard { _listxattr(p, l, sz) } }
+      Wrap.fusewrap_register_removexattr ->(p : Pointer(UInt8), n : Pointer(UInt8)) { guard { _removexattr(p, n) } }
+      Wrap.fusewrap_register_lseek ->(p : Pointer(UInt8), o : Int64, w : Int32, fi : Pointer(Wrap::FileInfo)) { guard64 { _lseek(p, o, w, fi) } }
+      Wrap.fusewrap_register_fallocate ->(p : Pointer(UInt8), m : Int32, o : Int64, l : Int64, fi : Pointer(Wrap::FileInfo)) { guard { _fallocate(p, m, o, l, fi) } }
+      Wrap.fusewrap_register_copy_file_range ->(pi : Pointer(UInt8), fii : Pointer(Wrap::FileInfo), oi : Int64, po : Pointer(UInt8), fio : Pointer(Wrap::FileInfo), oo : Int64, sz : LibC::SizeT, fl : Int32) { guard64 { _copy_file_range(pi, fii, oi, po, fio, oo, sz, fl) } }
+      Wrap.fusewrap_register_flock ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo), op : Int32) { guard { _flock(p, fi, op) } }
+      Wrap.fusewrap_register_lock ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo), cmd : Int32, lk : Pointer(LibC::Flock)) { guard { _lock(p, fi, cmd, lk) } }
+      Wrap.fusewrap_register_ioctl ->(p : Pointer(UInt8), cmd : UInt32, arg : Void*, fi : Pointer(Wrap::FileInfo), fl : UInt32, data : Void*) { guard { _ioctl(p, cmd, arg, fi, fl, data) } }
+      Wrap.fusewrap_register_poll ->(p : Pointer(UInt8), fi : Pointer(Wrap::FileInfo), ph : Void*, rev : Pointer(UInt32)) { guard { _poll(p, fi, ph, rev) } }
+      Wrap.fusewrap_register_bmap ->(p : Pointer(UInt8), bs : LibC::SizeT, idx : Pointer(UInt64)) { guard { _bmap(p, bs, idx) } }
     end
   end
 end

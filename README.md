@@ -32,7 +32,7 @@ The C shim is built with `make` (it produces the static archive
 
 ## Usage
 
-Subclass `Crystalfuse::FileSystem` (or its short alias `Crystalfuse::FS`),
+Subclass `Fuse::FileSystem` (or its short alias `Fuse::FS`),
 override the operations you need, and call `#mount`. Anything you don't override
 returns a sensible default (`-ENOENT` for lookups, `-ENOSYS` for write
 operations).
@@ -40,13 +40,13 @@ operations).
 ```crystal
 require "crystalfuse"
 
-class HelloFS < Crystalfuse::FS
+class HelloFS < Fuse::FS
   CONTENT = "Hello from Crystal!\n"
 
-  def getattr(path : String) : Crystalfuse::FileAttr | Int32
+  def getattr(path : String) : Fuse::FileAttr | Int32
     case path
-    when "/"          then Crystalfuse::FileAttr.dir
-    when "/hello.txt" then Crystalfuse::FileAttr.file(size: CONTENT.bytesize, mode: 0o444)
+    when "/"          then Fuse::FileAttr.dir
+    when "/hello.txt" then Fuse::FileAttr.file(size: CONTENT.bytesize, mode: 0o444)
     else                   -Errno::ENOENT.value
     end
   end
@@ -135,14 +135,14 @@ version, so the C shim owns it and you only ever touch the safe `StatVFS`.
 ## File handles
 
 `open`, `create`, `read`, `write`, `release` and `flush` each have a second
-form that also receives a `Crystalfuse::FileInfo`. Override that form when you
+form that also receives a `Fuse::FileInfo`. Override that form when you
 want the open *flags* (`read_only?`, `writable?`, `append?`, `truncate?`) or a
 *file handle*: set `fi.fh` (any `UInt64` you own) in `open`/`create` and the
 kernel hands it back on every later op for that open file, so you needn't
 re-resolve the path each time. Free it in `release`.
 
 ```crystal
-def open(path : String, fi : Crystalfuse::FileInfo) : Int32
+def open(path : String, fi : Fuse::FileInfo) : Int32
   return -Errno::EACCES.value if fi.writable? # read-only fs
   fi.fh = @open.add(MyOpenFile.new(path))     # see HandleTable below
   0
@@ -153,7 +153,7 @@ The path-only forms still work — they're what the handle-aware defaults
 delegate to — so a stateless filesystem can ignore handles entirely.
 
 For mapping handles to your own state there's an **optional** helper,
-`Crystalfuse::HandleTable(T)` (`require "crystalfuse/handle_table"`); it's not
+`Fuse::HandleTable(T)` (`require "crystalfuse/handle_table"`); it's not
 loaded by default. See `eg/handlefs/handlefs.cr` for a complete read-only
 example built on handles.
 

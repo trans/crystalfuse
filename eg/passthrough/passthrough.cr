@@ -24,7 +24,7 @@ lib LibCExtra
   fun truncate(path : LibC::Char*, length : LibC::OffT) : LibC::Int
 end
 
-class PassthroughFS < Crystalfuse::FS
+class PassthroughFS < Fuse::FS
   def initialize(@root : String)
   end
 
@@ -38,10 +38,10 @@ class PassthroughFS < Crystalfuse::FS
     -Errno.value.value
   end
 
-  def getattr(path : String) : Crystalfuse::FileAttr | Int32
+  def getattr(path : String) : Fuse::FileAttr | Int32
     st = uninitialized LibC::Stat
     return err if LibC.lstat(real(path), pointerof(st)) != 0
-    attr = Crystalfuse::FileAttr.new(
+    attr = Fuse::FileAttr.new(
       mode: st.st_mode.to_i32, size: st.st_size.to_i64, nlink: st.st_nlink.to_i32,
       atime: Time.unix(st.st_atim.tv_sec), mtime: Time.unix(st.st_mtim.tv_sec),
       ctime: Time.unix(st.st_ctim.tv_sec), uid: st.st_uid, gid: st.st_gid)
@@ -65,33 +65,33 @@ class PassthroughFS < Crystalfuse::FS
 
   # --- file handles: stash the real backing fd in fi.fh ---
 
-  def open(path : String, fi : Crystalfuse::FileInfo) : Int32
+  def open(path : String, fi : Fuse::FileInfo) : Int32
     fd = LibC.open(real(path), fi.flags)
     return err if fd < 0
     fi.fh = fd.to_u64
     0
   end
 
-  def create(path : String, mode : Int32, fi : Crystalfuse::FileInfo) : Int32
+  def create(path : String, mode : Int32, fi : Fuse::FileInfo) : Int32
     fd = LibC.open(real(path), LibC::O_CREAT | LibC::O_WRONLY | LibC::O_TRUNC, LibC::ModeT.new(mode))
     return err if fd < 0
     fi.fh = fd.to_u64
     0
   end
 
-  def read(path : String, size : Int32, offset : Int64, fi : Crystalfuse::FileInfo) : Bytes | Int32
+  def read(path : String, size : Int32, offset : Int64, fi : Fuse::FileInfo) : Bytes | Int32
     buf = Bytes.new(size)
     n = LibC.pread(fi.fh.to_i32, buf.to_unsafe.as(Void*), LibC::SizeT.new(size), LibC::OffT.new(offset))
     return err if n < 0
     buf[0, n.to_i32]
   end
 
-  def write(path : String, data : Bytes, offset : Int64, fi : Crystalfuse::FileInfo) : Int32
+  def write(path : String, data : Bytes, offset : Int64, fi : Fuse::FileInfo) : Int32
     n = LibCExtra.pwrite(fi.fh.to_i32, data.to_unsafe.as(Void*), LibC::SizeT.new(data.size), LibC::OffT.new(offset))
     n < 0 ? err : n.to_i32
   end
 
-  def release(path : String, fi : Crystalfuse::FileInfo) : Int32
+  def release(path : String, fi : Fuse::FileInfo) : Int32
     LibC.close(fi.fh.to_i32)
     0
   end
